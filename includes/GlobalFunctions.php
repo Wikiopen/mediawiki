@@ -582,7 +582,7 @@ function wfAppendQuery( $url, $query ) {
  * like "subdir/foo.html", etc.
  *
  * @param string $url Either fully-qualified or a local path + query
- * @param string $defaultProto One of the PROTO_* constants. Determines the
+ * @param string|int|null $defaultProto One of the PROTO_* constants. Determines the
  *    protocol to use if $url or $wgServer is protocol-relative
  * @return string|false Fully-qualified URL, current-path-relative URL or false if
  *    no valid URL can be constructed
@@ -1010,7 +1010,7 @@ function wfMakeUrlIndexes( $url ) {
 
 /**
  * Check whether a given URL has a domain that occurs in a given set of domains
- * @param string $url URL
+ * @param string $url
  * @param array $domains Array of domains (strings)
  * @return bool True if the host part of $url ends in one of the strings in $domains
  */

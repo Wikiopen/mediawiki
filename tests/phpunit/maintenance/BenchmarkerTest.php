@@ -1,5 +1,10 @@
 <?php
 
+namespace MediaWiki\Tests\Maintenance;
+
+use Benchmarker;
+use MediaWikiCoversValidator;
+use PHPUnit_Framework_TestCase;
 use Wikimedia\TestingAccessWrapper;
 
 /**

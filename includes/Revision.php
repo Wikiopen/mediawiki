@@ -495,19 +495,64 @@ class Revision implements IDBAccessObject {
 			$this->mRecord = self::getRevisionStore()->newMutableRevisionFromArray(
 				$row,
 				$queryFlags,
-				$title
+				$this->ensureTitle( $row, $queryFlags, $title )
 			);
 		} elseif ( is_object( $row ) ) {
 			$this->mRecord = self::getRevisionStore()->newRevisionFromRow(
 				$row,
 				$queryFlags,
-				$title
+				$this->ensureTitle( $row, $queryFlags, $title )
 			);
 		} else {
 			throw new InvalidArgumentException(
 				'$row must be a row object, an associative array, or a RevisionRecord'
 			);
 		}
+	}
+
+	/**
+	 * Make sure we have *some* Title object for use by the constructor.
+	 * For B/C, the constructor shouldn't fail even for a bad page ID or bad revision ID.
+	 *
+	 * @param array|object $row
+	 * @param int $queryFlags
+	 * @param Title|null $title
+	 *
+	 * @return Title $title if not null, or a Title constructed from information in $row.
+	 */
+	private function ensureTitle( $row, $queryFlags, $title = null ) {
+		if ( $title ) {
+			return $title;
+		}
+
+		if ( is_array( $row ) ) {
+			if ( isset( $row['title'] ) ) {
+				if ( !( $row['title'] instanceof Title ) ) {
+					throw new MWException( 'title field must contain a Title object.' );
+				}
+
+				return $row['title'];
+			}
+
+			$pageId = isset( $row['page'] ) ? $row['page'] : 0;
+			$revId = isset( $row['id'] ) ? $row['id'] : 0;
+		} else {
+			$pageId = isset( $row->rev_page ) ? $row->rev_page : 0;
+			$revId = isset( $row->rev_id ) ? $row->rev_id : 0;
+		}
+
+		try {
+			$title = self::getRevisionStore()->getTitle( $pageId, $revId, $queryFlags );
+		} catch ( RevisionAccessException $ex ) {
+			// construct a dummy title!
+			wfLogWarning( __METHOD__ . ': ' . $ex->getMessage() );
+
+			// NOTE: this Title will only be used inside RevisionRecord
+			$title = Title::makeTitleSafe( NS_SPECIAL, "Badtitle/ID=$pageId" );
+			$title->resetArticleID( $pageId );
+		}
+
+		return $title;
 	}
 
 	/**
@@ -608,20 +653,27 @@ class Revision implements IDBAccessObject {
 	/**
 	 * Returns the length of the text in this revision, or null if unknown.
 	 *
-	 * @return int
+	 * @return int|null
 	 */
 	public function getSize() {
-		return $this->mRecord->getSize();
+		try {
+			return $this->mRecord->getSize();
+		} catch ( RevisionAccessException $ex ) {
+			return null;
+		}
 	}
 
 	/**
 	 * Returns the base36 sha1 of the content in this revision, or null if unknown.
 	 *
-	 * @return string
+	 * @return string|null
 	 */
 	public function getSha1() {
-		// XXX: we may want to drop all the hashing logic, it's not worth the overhead.
-		return $this->mRecord->getSha1();
+		try {
+			return $this->mRecord->getSha1();
+		} catch ( RevisionAccessException $ex ) {
+			return null;
+		}
 	}
 
 	/**
@@ -923,8 +975,9 @@ class Revision implements IDBAccessObject {
 	 * @return Revision|null
 	 */
 	public function getPrevious() {
-		$rec = self::getRevisionStore()->getPreviousRevision( $this->mRecord );
-		return $rec === null ? null : new Revision( $rec );
+		$title = $this->getTitle();
+		$rec = self::getRevisionStore()->getPreviousRevision( $this->mRecord, $title );
+		return $rec === null ? null : new Revision( $rec, self::READ_NORMAL, $title );
 	}
 
 	/**
@@ -933,8 +986,9 @@ class Revision implements IDBAccessObject {
 	 * @return Revision|null
 	 */
 	public function getNext() {
-		$rec = self::getRevisionStore()->getNextRevision( $this->mRecord );
-		return $rec === null ? null : new Revision( $rec );
+		$title = $this->getTitle();
+		$rec = self::getRevisionStore()->getNextRevision( $this->mRecord, $title );
+		return $rec === null ? null : new Revision( $rec, self::READ_NORMAL, $title );
 	}
 
 	/**
@@ -1063,7 +1117,11 @@ class Revision implements IDBAccessObject {
 
 		$comment = CommentStoreComment::newUnsavedComment( $summary, null );
 
-		$title = Title::newFromID( $pageId );
+		$title = Title::newFromID( $pageId, Title::GAID_FOR_UPDATE );
+		if ( $title === null ) {
+			return null;
+		}
+
 		$rec = self::getRevisionStore()->newNullRevision( $dbw, $title, $comment, $minor, $user );
 
 		return new Revision( $rec );

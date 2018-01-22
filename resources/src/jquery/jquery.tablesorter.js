@@ -289,8 +289,8 @@
 
 	function uniqueElements( array ) {
 		var uniques = [];
-		$.each( array, function ( i, elem ) {
-			if ( elem !== undefined && $.inArray( elem, uniques ) === -1 ) {
+		array.forEach( function ( elem ) {
+			if ( elem !== undefined && uniques.indexOf( elem ) === -1 ) {
 				uniques.push( elem );
 			}
 		} );
@@ -345,7 +345,7 @@
 				} );
 			} );
 			// We want to find the row that has the most columns (ignoring colspan)
-			$.each( exploded, function ( index, cellArray ) {
+			exploded.forEach( function ( cellArray, index ) {
 				headerCount = $( uniqueElements( cellArray ) ).filter( 'th' ).length;
 				if ( headerCount >= maxSeen ) {
 					maxSeen = headerCount;
@@ -423,9 +423,9 @@
 	 */
 	function setHeadersOrder( $headers, sortList, headerToColumns ) {
 		// Loop through all headers to retrieve the indices of the columns the header spans across:
-		$.each( headerToColumns, function ( headerIndex, columns ) {
+		headerToColumns.forEach( function ( columns, headerIndex ) {
 
-			$.each( columns, function ( i, columnIndex ) {
+			columns.forEach( function ( columnIndex, i ) {
 				var header = $headers[ headerIndex ],
 					$header = $( header );
 
@@ -437,7 +437,7 @@
 					} );
 				} else {
 					// Column shall be sorted: Apply designated count and order.
-					$.each( sortList, function ( j, sortColumn ) {
+					sortList.forEach( function ( sortColumn ) {
 						if ( sortColumn[ 0 ] === i ) {
 							$header.data( {
 								order: sortColumn[ 1 ],
@@ -622,8 +622,8 @@
 				}
 				return ret;
 			} );
-			$.each( rowspanCells, function () {
-				$.data( this, 'tablesorter' ).needResort = false;
+			rowspanCells.forEach( function ( cell ) {
+				$.data( cell, 'tablesorter' ).needResort = false;
 			} );
 		}
 		resortCells();
@@ -925,9 +925,8 @@
 						cell = this;
 						// Get current column index
 						columns = config.headerToColumns[ $cell.data( 'headerIndex' ) ];
-						newSortList = $.map( columns, function ( c ) {
-							// jQuery "helpfully" flattens the arrays...
-							return [ [ c, $cell.data( 'order' ) ] ];
+						newSortList = columns.map( function ( c ) {
+							return [ c, $cell.data( 'order' ) ];
 						} );
 						// Index of first column belonging to this header
 						i = columns[ 0 ];

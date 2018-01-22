@@ -85,8 +85,8 @@ class PHPVersionCheck {
 				'implementation' => 'HHVM',
 				'version' => defined( 'HHVM_VERSION' ) ? HHVM_VERSION : 'undefined',
 				'vendor' => 'Facebook',
-				'upstreamSupported' => '3.6.5',
-				'minSupported' => '3.6.5',
+				'upstreamSupported' => '3.18.5',
+				'minSupported' => '3.18.5',
 				'upgradeURL' => 'https://docs.hhvm.com/hhvm/installation/introduction',
 			);
 		}
@@ -94,7 +94,7 @@ class PHPVersionCheck {
 			'implementation' => 'PHP',
 			'version' => PHP_VERSION,
 			'vendor' => 'the PHP Group',
-			'upstreamSupported' => '5.5.0',
+			'upstreamSupported' => '5.6.0',
 			'minSupported' => '5.5.9',
 			'upgradeURL' => 'https://secure.php.net/downloads.php',
 		);
@@ -128,13 +128,13 @@ class PHPVersionCheck {
 			$longHtml = <<<HTML
 			Please consider <a href="{$phpInfo['upgradeURL']}">upgrading your copy of
 			{$phpInfo['implementation']}</a>.
-			{$phpInfo['implementation']} versions less than {$phpInfo['upstreamSupported']} are no 
+			{$phpInfo['implementation']} versions less than {$phpInfo['upstreamSupported']} are no
 			longer supported by {$phpInfo['vendor']} and will not receive
 			security or bugfix updates.
 		</p>
 		<p>
 			If for some reason you are unable to upgrade your {$phpInfo['implementation']} version,
-			you will need to <a href="https://www.mediawiki.org/wiki/Download">download</a> an 
+			you will need to <a href="https://www.mediawiki.org/wiki/Download">download</a> an
 			older version of MediaWiki from our website.
 			See our<a href="https://www.mediawiki.org/wiki/Compatibility#PHP">compatibility page</a>
 			for details of which versions are compatible with prior versions of {$phpInfo['implementation']}.
