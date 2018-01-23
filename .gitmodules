@@ -106,6 +106,10 @@
 	path = skins/Metrolook
 	url = https://gerrit.wikimedia.org/r/mediawiki/skins/Metrolook
 	branch = REL1_30
+[submodule "skins/MinervaNeue"]
+	path = skins/MinervaNeue
+	url = https://gerrit.wikimedia.org/r/mediawiki/skins/MinervaNeue
+	branch = REL1_30
 [submodule "skins/Modern"]
 	path = skins/Modern
 	url = https://gerrit.wikimedia.org/r/mediawiki/skins/Modern
