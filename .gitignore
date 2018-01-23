@@ -1,3 +1,6 @@
+# Miraheze specific
+*.dblist
+
 # Repository management
 .svn
 
@@ -47,7 +50,6 @@ node_modules/
 /tests/phpunit/phpunit.phar
 
 # Composer
-/vendor
 /composer.lock
 /composer.local.json
 /composer.phar

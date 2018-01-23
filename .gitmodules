@@ -26,9 +26,9 @@
 	path = extensions/Echo
 	url = https://gerrit.wikimedia.org/r/mediawiki/extensions/Echo
 	branch = REL1_30
-[submodule "extensions/EditCount"]
-	path = extensions/EditCount
-	url = https://gerrit.wikimedia.org/r/mediawiki/extensions/EditCount
+[submodule "extensions/Editcount"]
+	path = extensions/Editcount
+	url = https://gerrit.wikimedia.org/r/mediawiki/extensions/Editcount
 	branch = REL1_30
 [submodule "extensions/Gadgets"]
 	path = extensions/Gadgets
