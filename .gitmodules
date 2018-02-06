@@ -126,3 +126,7 @@
 	path = skins/Vector
 	url = https://gerrit.wikimedia.org/r/mediawiki/skins/Vector
 	branch = REL1_30
+[submodule "extensions/OAuth"]
+	path = extensions/OAuth
+	url = https://gerrit.wikimedia.org/r/p/mediawiki/extensions/OAuth.git
+	branch = REL1_30
