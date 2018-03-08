@@ -16,7 +16,7 @@ use Wikimedia\TestingAccessWrapper;
  * @covers WANObjectCache::getInterimValue
  * @covers WANObjectCache::setInterimValue
  */
-class WANObjectCacheTest extends PHPUnit_Framework_TestCase {
+class WANObjectCacheTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -621,7 +621,7 @@ class WANObjectCacheTest extends PHPUnit_Framework_TestCase {
 		$this->assertEquals( count( $ids ), $calls, "Values cached" );
 
 		// Mock the BagOStuff to assure only one getMulti() call given process caching
-		$localBag = $this->getMockBuilder( 'HashBagOStuff' )
+		$localBag = $this->getMockBuilder( HashBagOStuff::class )
 			->setMethods( [ 'getMulti' ] )->getMock();
 		$localBag->expects( $this->exactly( 1 ) )->method( 'getMulti' )->willReturn( [
 			WANObjectCache::VALUE_KEY_PREFIX . 'k1' => 'val-id1',
@@ -1474,14 +1474,17 @@ class WANObjectCacheTest extends PHPUnit_Framework_TestCase {
 	}
 
 	public function testMcRouterSupport() {
-		$localBag = $this->getMockBuilder( 'EmptyBagOStuff' )
+		$localBag = $this->getMockBuilder( EmptyBagOStuff::class )
 			->setMethods( [ 'set', 'delete' ] )->getMock();
 		$localBag->expects( $this->never() )->method( 'set' );
 		$localBag->expects( $this->never() )->method( 'delete' );
 		$wanCache = new WANObjectCache( [
 			'cache' => $localBag,
 			'pool' => 'testcache-hash',
-			'relayer' => new EventRelayerNull( [] )
+			'relayer' => new EventRelayerNull( [] ),
+			'mcrouterAware' => true,
+			'region' => 'pmtpa',
+			'cluster' => 'mw-wan'
 		] );
 		$valFunc = function () {
 			return 1;
@@ -1496,6 +1499,60 @@ class WANObjectCacheTest extends PHPUnit_Framework_TestCase {
 		$wanCache->getCheckKeyTime( 'zzz' );
 		$wanCache->reap( 'x', time() - 300 );
 		$wanCache->reap( 'zzz', time() - 300 );
+	}
+
+	public function testMcRouterSupportBroadcastDelete() {
+		$localBag = $this->getMockBuilder( EmptyBagOStuff::class )
+			->setMethods( [ 'set' ] )->getMock();
+		$wanCache = new WANObjectCache( [
+			'cache' => $localBag,
+			'pool' => 'testcache-hash',
+			'relayer' => new EventRelayerNull( [] ),
+			'mcrouterAware' => true,
+			'region' => 'pmtpa',
+			'cluster' => 'mw-wan'
+		] );
+
+		$localBag->expects( $this->once() )->method( 'set' )
+			->with( "/*/mw-wan/" . $wanCache::VALUE_KEY_PREFIX . "test" );
+
+		$wanCache->delete( 'test' );
+	}
+
+	public function testMcRouterSupportBroadcastTouchCK() {
+		$localBag = $this->getMockBuilder( EmptyBagOStuff::class )
+			->setMethods( [ 'set' ] )->getMock();
+		$wanCache = new WANObjectCache( [
+			'cache' => $localBag,
+			'pool' => 'testcache-hash',
+			'relayer' => new EventRelayerNull( [] ),
+			'mcrouterAware' => true,
+			'region' => 'pmtpa',
+			'cluster' => 'mw-wan'
+		] );
+
+		$localBag->expects( $this->once() )->method( 'set' )
+			->with( "/*/mw-wan/" . $wanCache::TIME_KEY_PREFIX . "test" );
+
+		$wanCache->touchCheckKey( 'test' );
+	}
+
+	public function testMcRouterSupportBroadcastResetCK() {
+		$localBag = $this->getMockBuilder( EmptyBagOStuff::class )
+			->setMethods( [ 'delete' ] )->getMock();
+		$wanCache = new WANObjectCache( [
+			'cache' => $localBag,
+			'pool' => 'testcache-hash',
+			'relayer' => new EventRelayerNull( [] ),
+			'mcrouterAware' => true,
+			'region' => 'pmtpa',
+			'cluster' => 'mw-wan'
+		] );
+
+		$localBag->expects( $this->once() )->method( 'delete' )
+			->with( "/*/mw-wan/" . $wanCache::TIME_KEY_PREFIX . "test" );
+
+		$wanCache->resetCheckKey( 'test' );
 	}
 
 	/**

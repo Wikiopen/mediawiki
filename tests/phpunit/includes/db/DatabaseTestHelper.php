@@ -2,6 +2,7 @@
 
 use Wikimedia\Rdbms\TransactionProfiler;
 use Wikimedia\Rdbms\DatabaseDomain;
+use Wikimedia\Rdbms\Database;
 
 /**
  * Helper for testing the methods from the Database class
@@ -108,7 +109,7 @@ class DatabaseTestHelper extends Database {
 
 	public function tableExists( $table, $fname = __METHOD__ ) {
 		$tableRaw = $this->tableName( $table, 'raw' );
-		if ( isset( $this->mSessionTempTables[$tableRaw] ) ) {
+		if ( isset( $this->sessionTempTables[$tableRaw] ) ) {
 			return true; // already known to exist
 		}
 
@@ -174,7 +175,7 @@ class DatabaseTestHelper extends Database {
 		return false;
 	}
 
-	function affectedRows() {
+	function fetchAffectedRowCount() {
 		return -1;
 	}
 

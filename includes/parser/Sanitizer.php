@@ -515,9 +515,9 @@ class Sanitizer {
 						$badtag = true;
 					} elseif ( $slash ) {
 						# Closing a tag... is it the one we just opened?
-						MediaWiki\suppressWarnings();
+						Wikimedia\suppressWarnings();
 						$ot = array_pop( $tagstack );
-						MediaWiki\restoreWarnings();
+						Wikimedia\restoreWarnings();
 
 						if ( $ot != $t ) {
 							if ( isset( $htmlsingleallowed[$ot] ) ) {
@@ -525,32 +525,32 @@ class Sanitizer {
 								# and see if we find a match below them
 								$optstack = [];
 								array_push( $optstack, $ot );
-								MediaWiki\suppressWarnings();
+								Wikimedia\suppressWarnings();
 								$ot = array_pop( $tagstack );
-								MediaWiki\restoreWarnings();
+								Wikimedia\restoreWarnings();
 								while ( $ot != $t && isset( $htmlsingleallowed[$ot] ) ) {
 									array_push( $optstack, $ot );
-									MediaWiki\suppressWarnings();
+									Wikimedia\suppressWarnings();
 									$ot = array_pop( $tagstack );
-									MediaWiki\restoreWarnings();
+									Wikimedia\restoreWarnings();
 								}
 								if ( $t != $ot ) {
 									# No match. Push the optional elements back again
 									$badtag = true;
-									MediaWiki\suppressWarnings();
+									Wikimedia\suppressWarnings();
 									$ot = array_pop( $optstack );
-									MediaWiki\restoreWarnings();
+									Wikimedia\restoreWarnings();
 									while ( $ot ) {
 										array_push( $tagstack, $ot );
-										MediaWiki\suppressWarnings();
+										Wikimedia\suppressWarnings();
 										$ot = array_pop( $optstack );
-										MediaWiki\restoreWarnings();
+										Wikimedia\restoreWarnings();
 									}
 								}
 							} else {
-								MediaWiki\suppressWarnings();
+								Wikimedia\suppressWarnings();
 								array_push( $tagstack, $ot );
-								MediaWiki\restoreWarnings();
+								Wikimedia\restoreWarnings();
 
 								# <li> can be nested in <ul> or <ol>, skip those cases:
 								if ( !isset( $htmllist[$ot] ) || !isset( $listtags[$t] ) ) {
@@ -1171,7 +1171,9 @@ class Sanitizer {
 		# Stupid hack
 		$encValue = preg_replace_callback(
 			'/((?i)' . wfUrlProtocols() . ')/',
-			[ 'Sanitizer', 'armorLinksCallback' ],
+			function ( $matches ) {
+				return str_replace( ':', '&#58;', $matches[1] );
+			},
 			$encValue );
 		return $encValue;
 	}
@@ -1417,15 +1419,6 @@ class Sanitizer {
 	}
 
 	/**
-	 * Regex replace callback for armoring links against further processing.
-	 * @param array $matches
-	 * @return string
-	 */
-	private static function armorLinksCallback( $matches ) {
-		return str_replace( ':', '&#58;', $matches[1] );
-	}
-
-	/**
 	 * Return an associative array of attribute names and values from
 	 * a partial tag string. Attribute names are forced to lowercase,
 	 * character references are decoded to UTF-8 text.
@@ -1549,7 +1542,7 @@ class Sanitizer {
 	static function normalizeCharReferences( $text ) {
 		return preg_replace_callback(
 			self::CHAR_REFS_REGEX,
-			[ 'Sanitizer', 'normalizeCharReferencesCallback' ],
+			[ self::class, 'normalizeCharReferencesCallback' ],
 			$text );
 	}
 
@@ -1649,7 +1642,7 @@ class Sanitizer {
 	public static function decodeCharReferences( $text ) {
 		return preg_replace_callback(
 			self::CHAR_REFS_REGEX,
-			[ 'Sanitizer', 'decodeCharReferencesCallback' ],
+			[ self::class, 'decodeCharReferencesCallback' ],
 			$text );
 	}
 
@@ -1667,7 +1660,7 @@ class Sanitizer {
 		global $wgContLang;
 		$text = preg_replace_callback(
 			self::CHAR_REFS_REGEX,
-			[ 'Sanitizer', 'decodeCharReferencesCallback' ],
+			[ self::class, 'decodeCharReferencesCallback' ],
 			$text,
 			-1, //limit
 			$count

@@ -553,7 +553,7 @@ class ResourceLoader implements LoggerAwareInterface {
 				$object->setLogger( $this->logger );
 			} else {
 				if ( !isset( $info['class'] ) ) {
-					$class = 'ResourceLoaderFileModule';
+					$class = ResourceLoaderFileModule::class;
 				} else {
 					$class = $info['class'];
 				}
@@ -586,8 +586,8 @@ class ResourceLoader implements LoggerAwareInterface {
 		}
 		if (
 			isset( $info['class'] ) &&
-			$info['class'] !== 'ResourceLoaderFileModule' &&
-			!is_subclass_of( $info['class'], 'ResourceLoaderFileModule' )
+			$info['class'] !== ResourceLoaderFileModule::class &&
+			!is_subclass_of( $info['class'], ResourceLoaderFileModule::class )
 		) {
 			return false;
 		}
@@ -1227,7 +1227,11 @@ MESSAGE;
 		$name, $scripts, $styles, $messages, $templates
 	) {
 		if ( $scripts instanceof XmlJsCode ) {
-			$scripts = new XmlJsCode( "function ( $, jQuery, require, module ) {\n{$scripts->value}\n}" );
+			if ( self::inDebugMode() ) {
+				$scripts = new XmlJsCode( "function ( $, jQuery, require, module ) {\n{$scripts->value}\n}" );
+			} else {
+				$scripts = new XmlJsCode( 'function($,jQuery,require,module){'. $scripts->value . '}' );
+			}
 		} elseif ( !is_string( $scripts ) && !is_array( $scripts ) ) {
 			throw new MWException( 'Invalid scripts error. Array of URLs or string of code expected.' );
 		}
@@ -1482,10 +1486,8 @@ MESSAGE;
 	}
 
 	/**
-	 * Returns JS code which runs given JS code if the client-side framework is
-	 * present.
+	 * Wraps JavaScript code to run after startup and base modules.
 	 *
-	 * @deprecated since 1.25; use makeInlineScript instead
 	 * @param string $script JavaScript code
 	 * @return string JavaScript code
 	 */
@@ -1495,10 +1497,10 @@ MESSAGE;
 	}
 
 	/**
-	 * Construct an inline script tag with given JS code.
+	 * Returns an HTML script tag that runs given JS code after startup and base modules.
 	 *
-	 * The code will be wrapped in a closure, and it will be executed by ResourceLoader
-	 * only if the client has adequate support for MediaWiki JavaScript code.
+	 * The code will be wrapped in a closure, and it will be executed by ResourceLoader's
+	 * startup module if the client has adequate support for MediaWiki JavaScript code.
 	 *
 	 * @param string $script JavaScript code
 	 * @return WrappedString HTML

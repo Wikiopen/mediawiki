@@ -323,11 +323,6 @@ class GenerateCollationData extends Maintenance {
 			$headerChars[] = $char;
 			if ( $primaryCollator->compare( $char, $prevChar ) <= 0 ) {
 				$numOutOfOrder++;
-				/*
-				printf( "Out of order: U+%05X > U+%05X\n",
-					utf8ToCodepoint( $prevChar ),
-					utf8ToCodepoint( $char ) );
-				 */
 			}
 			$prevChar = $char;
 
@@ -464,5 +459,5 @@ class UcdXmlReader {
 	}
 }
 
-$maintClass = 'GenerateCollationData';
+$maintClass = GenerateCollationData::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

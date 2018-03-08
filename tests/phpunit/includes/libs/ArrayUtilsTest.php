@@ -4,8 +4,7 @@
  *
  * @group Database
  */
-
-class ArrayUtilsTest extends PHPUnit_Framework_TestCase {
+class ArrayUtilsTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 

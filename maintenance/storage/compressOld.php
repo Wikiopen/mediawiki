@@ -462,7 +462,6 @@ class CompressOld extends Maintenance {
 				$this->output( "/" );
 				$this->commitTransaction( $dbw, __METHOD__ );
 				$i += $thisChunkSize;
-				wfWaitForSlaves();
 			}
 			$this->output( "\n" );
 		}
@@ -471,5 +470,5 @@ class CompressOld extends Maintenance {
 	}
 }
 
-$maintClass = 'CompressOld';
+$maintClass = CompressOld::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

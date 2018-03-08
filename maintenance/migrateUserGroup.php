@@ -100,11 +100,10 @@ class MigrateUserGroup extends Maintenance {
 			$count += $affected;
 			$blockStart += $batchSize;
 			$blockEnd += $batchSize;
-			wfWaitForSlaves();
 		}
 		$this->output( "Done! $count users in group '$oldGroup' are now in '$newGroup' instead.\n" );
 	}
 }
 
-$maintClass = "MigrateUserGroup";
+$maintClass = MigrateUserGroup::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

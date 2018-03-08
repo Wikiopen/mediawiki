@@ -170,8 +170,8 @@ class RefreshLinks extends Maintenance {
 			}
 		} else {
 			if ( !$end ) {
-				$maxPage = $dbr->selectField( 'page', 'max(page_id)', false );
-				$maxRD = $dbr->selectField( 'redirect', 'max(rd_from)', false );
+				$maxPage = $dbr->selectField( 'page', 'max(page_id)', '', __METHOD__ );
+				$maxRD = $dbr->selectField( 'redirect', 'max(rd_from)', '', __METHOD__ );
 				$end = max( $maxPage, $maxRD );
 			}
 			$this->output( "Refreshing redirects table.\n" );
@@ -489,5 +489,5 @@ class RefreshLinks extends Maintenance {
 	}
 }
 
-$maintClass = 'RefreshLinks';
+$maintClass = RefreshLinks::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

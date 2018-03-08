@@ -1,9 +1,5 @@
 <?php
 /**
- *
- *
- * Created on Sep 25, 2006
- *
  * Copyright © 2006 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
@@ -852,7 +848,7 @@ class ApiQuerySiteinfo extends ApiQueryBase {
 		foreach ( $myWgHooks as $name => $subscribers ) {
 			$arr = [
 				'name' => $name,
-				'subscribers' => array_map( [ 'SpecialVersion', 'arrayToString' ], $subscribers ),
+				'subscribers' => array_map( [ SpecialVersion::class, 'arrayToString' ], $subscribers ),
 			];
 
 			ApiResult::setArrayType( $arr['subscribers'], 'array' );

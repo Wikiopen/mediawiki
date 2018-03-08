@@ -480,12 +480,10 @@ class Article implements Page {
 		# Render printable version, use printable version cache
 		if ( $outputPage->isPrintable() ) {
 			$parserOptions->setIsPrintable( true );
-			$parserOptions->setEditSection( false );
 			$poOptions['enableSectionEditLinks'] = false;
 		} elseif ( $this->disableSectionEditForRender
 			|| !$this->isCurrent() || !$this->getTitle()->quickUserCan( 'edit', $user )
 		) {
-			$parserOptions->setEditSection( false );
 			$poOptions['enableSectionEditLinks'] = false;
 		}
 
@@ -1251,7 +1249,7 @@ class Article implements Page {
 			}
 
 			$dir = $this->getContext()->getLanguage()->getDir();
-			$lang = $this->getContext()->getLanguage()->getCode();
+			$lang = $this->getContext()->getLanguage()->getHtmlCode();
 			$outputPage->addWikiText( Xml::openElement( 'div', [
 				'class' => "noarticletext mw-content-$dir",
 				'dir' => $dir,
@@ -1526,7 +1524,6 @@ class Article implements Page {
 	public function render() {
 		$this->getContext()->getRequest()->response()->header( 'X-Robots-Tag: noindex' );
 		$this->getContext()->getOutput()->setArticleBodyOnly( true );
-		$this->getContext()->getOutput()->enableSectionEditLinks( false );
 		$this->disableSectionEditForRender = true;
 		$this->view();
 	}
@@ -1686,6 +1683,7 @@ class Article implements Page {
 		$outputPage->setPageTitle( wfMessage( 'delete-confirm', $title->getPrefixedText() ) );
 		$outputPage->addBacklinkSubtitle( $title );
 		$outputPage->setRobotPolicy( 'noindex,nofollow' );
+		$outputPage->addModules( 'mediawiki.action.delete' );
 
 		$backlinkCache = $title->getBacklinkCache();
 		if ( $backlinkCache->hasLinks( 'pagelinks' ) || $backlinkCache->hasLinks( 'templatelinks' ) ) {
@@ -1730,12 +1728,17 @@ class Article implements Page {
 			]
 		);
 
+		// HTML maxlength uses "UTF-16 code units", which means that characters outside BMP
+		// (e.g. emojis) count for two each. This limit is overridden in JS to instead count
+		// Unicode codepoints (or 255 UTF-8 bytes for old schema).
+		$conf = $this->getContext()->getConfig();
+		$oldCommentSchema = $conf->get( 'CommentTableSchemaMigrationStage' ) === MIGRATION_OLD;
 		$fields[] = new OOUI\FieldLayout(
 			new OOUI\TextInputWidget( [
 				'name' => 'wpReason',
 				'inputId' => 'wpReason',
 				'tabIndex' => 2,
-				'maxLength' => 255,
+				'maxLength' => $oldCommentSchema ? 255 : CommentStore::COMMENT_CHARACTER_LIMIT,
 				'infusable' => true,
 				'value' => $reason,
 				'autofocus' => true,
@@ -2553,7 +2556,7 @@ class Article implements Page {
 	 * @see WikiPage::updateRedirectOn
 	 */
 	public function updateRedirectOn( $dbw, $redirectTitle, $lastRevIsRedirect = null ) {
-		return $this->mPage->updateRedirectOn( $dbw, $redirectTitle, $lastRevIsRedirect = null );
+		return $this->mPage->updateRedirectOn( $dbw, $redirectTitle, $lastRevIsRedirect );
 	}
 
 	/**

@@ -176,13 +176,12 @@ class LogPager extends ReverseChronologicalPager {
 		// Normalize username first so that non-existent users used
 		// in maintenance scripts work
 		$name = $usertitle->getText();
-		/* Fetch userid at first, if known, provides awesome query plan afterwards */
-		$userid = User::idFromName( $name );
-		if ( !$userid ) {
-			$this->mConds['log_user_text'] = IP::sanitizeIP( $name );
-		} else {
-			$this->mConds['log_user'] = $userid;
-		}
+
+		// Assume no joins required for log_user
+		$this->mConds[] = ActorMigration::newMigration()->getWhere(
+			wfGetDB( DB_REPLICA ), 'log_user', User::newFromName( $name, false )
+		)['conds'];
+
 		$this->enforcePerformerRestrictions();
 
 		$this->performer = $name;
@@ -423,9 +422,9 @@ class LogPager extends ReverseChronologicalPager {
 		$this->actionRestrictionsEnforced = true;
 		$user = $this->getUser();
 		if ( !$user->isAllowed( 'deletedhistory' ) ) {
-			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::DELETED_USER ) . ' = 0';
+			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::DELETED_ACTION ) . ' = 0';
 		} elseif ( !$user->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
-			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::SUPPRESSED_USER ) .
+			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::SUPPRESSED_ACTION ) .
 				' != ' . LogPage::SUPPRESSED_USER;
 		}
 	}
@@ -441,9 +440,9 @@ class LogPager extends ReverseChronologicalPager {
 		$this->performerRestrictionsEnforced = true;
 		$user = $this->getUser();
 		if ( !$user->isAllowed( 'deletedhistory' ) ) {
-			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::DELETED_ACTION ) . ' = 0';
+			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::DELETED_USER ) . ' = 0';
 		} elseif ( !$user->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
-			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::SUPPRESSED_ACTION ) .
+			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::SUPPRESSED_USER ) .
 				' != ' . LogPage::SUPPRESSED_ACTION;
 		}
 	}

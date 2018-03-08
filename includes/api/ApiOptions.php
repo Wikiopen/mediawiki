@@ -1,9 +1,5 @@
 <?php
 /**
- *
- *
- * Created on Apr 15, 2012
- *
  * Copyright © 2012 Szymon Świerkosz beau@adres.pl
  *
  * This program is free software; you can redistribute it and/or modify
@@ -124,7 +120,7 @@ class ApiOptions extends ApiBase {
 				$user->setOption( $key, $value );
 				$changed = true;
 			} else {
-				$this->addWarning( [ 'apiwarn-validationfailed', wfEscapeWikitext( $key ), $validation ] );
+				$this->addWarning( [ 'apiwarn-validationfailed', wfEscapeWikiText( $key ), $validation ] );
 			}
 		}
 

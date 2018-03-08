@@ -267,7 +267,7 @@ class Preferences {
 	public static function getFormObject(
 		$user,
 		IContextSource $context,
-		$formClass = 'PreferencesForm',
+		$formClass = PreferencesForm::class,
 		array $remove = []
 	) {
 		$preferencesFactory = self::getDefaultPreferencesFactory();
@@ -302,6 +302,8 @@ class Preferences {
 
 	/**
 	 * Handle the form submission if everything validated properly
+	 *
+	 * @deprecated since 1.31, use PreferencesFactory
 	 *
 	 * @param array $formData
 	 * @param PreferencesForm $form

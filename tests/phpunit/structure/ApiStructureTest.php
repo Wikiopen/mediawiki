@@ -20,11 +20,9 @@ class ApiStructureTest extends MediaWikiTestCase {
 	private static $testGlobals = [
 		[
 			'MiserMode' => false,
-			'AllowCategorizedRecentChanges' => false,
 		],
 		[
 			'MiserMode' => true,
-			'AllowCategorizedRecentChanges' => true,
 		],
 	];
 
@@ -50,7 +48,7 @@ class ApiStructureTest extends MediaWikiTestCase {
 	 */
 	private function checkMessage( $msg, $what ) {
 		$msg = ApiBase::makeMessage( $msg, self::getMain()->getContext() );
-		$this->assertInstanceOf( 'Message', $msg, "$what message" );
+		$this->assertInstanceOf( Message::class, $msg, "$what message" );
 		$this->assertTrue( $msg->exists(), "$what message {$msg->getKey()} exists" );
 	}
 

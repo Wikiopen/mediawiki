@@ -1,4 +1,7 @@
 ( function ( mw, $ ) {
+
+	var byteLength = require( 'mediawiki.String' ).byteLength;
+
 	/* eslint no-underscore-dangle: "off" */
 	/**
 	 * Controller for the filters in Recent Changes
@@ -320,6 +323,8 @@
 				info.noResultsDetails = 'NO_RESULTS_TIMEOUT';
 			} else if ( $root.find( '.mw-changeslist-notargetpage' ).length ) {
 				info.noResultsDetails = 'NO_RESULTS_NO_TARGET_PAGE';
+			} else if ( $root.find( '.mw-changeslist-invalidtargetpage' ).length ) {
+				info.noResultsDetails = 'NO_RESULTS_INVALID_TARGET_PAGE';
 			} else {
 				info.noResultsDetails = 'NO_RESULTS_NORMAL';
 			}
@@ -804,7 +809,7 @@
 		// Stringify state
 		stringified = JSON.stringify( state );
 
-		if ( $.byteLength( stringified ) > 65535 ) {
+		if ( byteLength( stringified ) > 65535 ) {
 			// Sanity check, since the preference can only hold that.
 			return;
 		}
@@ -835,8 +840,8 @@
 	mw.rcfilters.Controller.prototype.updateStickyPreferences = function () {
 		// Update default sticky values with selected, whether they came from
 		// the initial defaults or from the URL value that is being normalized
-		this.updateDaysDefault( this.filtersModel.getGroup( 'days' ).getSelectedItems()[ 0 ].getParamName() );
-		this.updateLimitDefault( this.filtersModel.getGroup( 'limit' ).getSelectedItems()[ 0 ].getParamName() );
+		this.updateDaysDefault( this.filtersModel.getGroup( 'days' ).findSelectedItems()[ 0 ].getParamName() );
+		this.updateLimitDefault( this.filtersModel.getGroup( 'limit' ).findSelectedItems()[ 0 ].getParamName() );
 
 		// TODO: Make these automatic by having the model go over sticky
 		// items and update their default values automatically
@@ -1096,7 +1101,7 @@
 			rightNow = new Date().getTime(),
 			randomIdentifier = String( mw.user.sessionId() ) + String( rightNow ) + String( Math.random() ),
 			// Get all current filters
-			filters = this.filtersModel.getSelectedItems().map( function ( item ) {
+			filters = this.filtersModel.findSelectedItems().map( function ( item ) {
 				return item.getName();
 			} );
 

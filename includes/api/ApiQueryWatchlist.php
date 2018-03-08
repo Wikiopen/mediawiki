@@ -1,9 +1,5 @@
 <?php
 /**
- *
- *
- * Created on Sep 25, 2006
- *
  * Copyright © 2006 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
@@ -91,7 +87,7 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 			}
 
 			if ( $this->fld_comment || $this->fld_parsedcomment ) {
-				$this->commentStore = new CommentStore( 'rc_comment' );
+				$this->commentStore = CommentStore::getStore();
 			}
 		}
 
@@ -361,7 +357,7 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 				Revision::DELETED_COMMENT,
 				$user
 			) ) {
-				$comment = $this->commentStore->getComment( $recentChangeInfo )->text;
+				$comment = $this->commentStore->getComment( 'rc_comment', $recentChangeInfo )->text;
 				if ( $this->fld_comment ) {
 					$vals['comment'] = $comment;
 				}

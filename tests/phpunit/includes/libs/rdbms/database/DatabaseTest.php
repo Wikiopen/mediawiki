@@ -1,11 +1,13 @@
 <?php
 
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\Database;
+use Wikimedia\Rdbms\DatabaseMysqli;
 use Wikimedia\Rdbms\LBFactorySingle;
 use Wikimedia\Rdbms\TransactionProfiler;
 use Wikimedia\TestingAccessWrapper;
 
-class DatabaseTest extends PHPUnit_Framework_TestCase {
+class DatabaseTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -322,7 +324,7 @@ class DatabaseTest extends PHPUnit_Framework_TestCase {
 	 */
 	private function getMockDB( $methods = [] ) {
 		static $abstractMethods = [
-			'affectedRows',
+			'fetchAffectedRowCount',
 			'closeConnection',
 			'dataSeek',
 			'doQuery',
@@ -370,9 +372,33 @@ class DatabaseTest extends PHPUnit_Framework_TestCase {
 		$this->assertFalse( (bool)$db->trxLevel(), "Transaction cleared." );
 	}
 
+	/**
+	 * @covers Wikimedia\Rdbms\Database::getScopedLockAndFlush
+	 * @covers Wikimedia\Rdbms\Database::lock
+	 * @covers Wikimedia\Rdbms\Database::unlock
+	 * @covers Wikimedia\Rdbms\Database::lockIsFree
+	 */
 	public function testGetScopedLock() {
 		$db = $this->getMockDB( [ 'isOpen' ] );
 		$db->method( 'isOpen' )->willReturn( true );
+
+		$this->assertEquals( 0, $db->trxLevel() );
+		$this->assertEquals( true, $db->lockIsFree( 'x', __METHOD__ ) );
+		$this->assertEquals( true, $db->lock( 'x', __METHOD__ ) );
+		$this->assertEquals( false, $db->lockIsFree( 'x', __METHOD__ ) );
+		$this->assertEquals( true, $db->unlock( 'x', __METHOD__ ) );
+		$this->assertEquals( true, $db->lockIsFree( 'x', __METHOD__ ) );
+		$this->assertEquals( 0, $db->trxLevel() );
+
+		$db->setFlag( DBO_TRX );
+		$this->assertEquals( true, $db->lockIsFree( 'x', __METHOD__ ) );
+		$this->assertEquals( true, $db->lock( 'x', __METHOD__ ) );
+		$this->assertEquals( false, $db->lockIsFree( 'x', __METHOD__ ) );
+		$this->assertEquals( true, $db->unlock( 'x', __METHOD__ ) );
+		$this->assertEquals( true, $db->lockIsFree( 'x', __METHOD__ ) );
+		$db->clearFlag( DBO_TRX );
+
+		$this->assertEquals( 0, $db->trxLevel() );
 
 		$db->setFlag( DBO_TRX );
 		try {
@@ -443,6 +469,32 @@ class DatabaseTest extends PHPUnit_Framework_TestCase {
 		$db->restoreFlags();
 		$this->assertEquals( $origSsl, $db->getFlag( DBO_SSL ) );
 		$this->assertEquals( $origTrx, $db->getFlag( DBO_TRX ) );
+	}
+
+	/**
+	 * @expectedException UnexpectedValueException
+	 * @covers Wikimedia\Rdbms\Database::setFlag
+	 */
+	public function testDBOIgnoreSet() {
+		$db = $this->getMockBuilder( DatabaseMysqli::class )
+			->disableOriginalConstructor()
+			->setMethods( null )
+			->getMock();
+
+		$db->setFlag( Database::DBO_IGNORE );
+	}
+
+	/**
+	 * @expectedException UnexpectedValueException
+	 * @covers Wikimedia\Rdbms\Database::clearFlag
+	 */
+	public function testDBOIgnoreClear() {
+		$db = $this->getMockBuilder( DatabaseMysqli::class )
+			->disableOriginalConstructor()
+			->setMethods( null )
+			->getMock();
+
+		$db->clearFlag( Database::DBO_IGNORE );
 	}
 
 	/**

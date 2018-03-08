@@ -148,7 +148,7 @@ abstract class File implements IDBAccessObject {
 	protected $isSafeFile;
 
 	/** @var string Required Repository class type */
-	protected $repoClass = 'FileRepo';
+	protected $repoClass = FileRepo::class;
 
 	/** @var array Cache of tmp filepaths pointing to generated bucket thumbnails, keyed by width */
 	protected $tmpBucketedThumbCache = [];
@@ -2186,7 +2186,7 @@ abstract class File implements IDBAccessObject {
 			$metadata = $this->getMetadata();
 
 			if ( is_string( $metadata ) ) {
-				$metadata = MediaWiki\quietCall( 'unserialize', $metadata );
+				$metadata = Wikimedia\quietCall( 'unserialize', $metadata );
 			}
 
 			if ( !is_array( $metadata ) ) {

@@ -55,7 +55,7 @@ class MWException extends Exception {
 		global $wgLang;
 
 		foreach ( $this->getTrace() as $frame ) {
-			if ( isset( $frame['class'] ) && $frame['class'] === 'LocalisationCache' ) {
+			if ( isset( $frame['class'] ) && $frame['class'] === LocalisationCache::class ) {
 				return false;
 			}
 		}
@@ -189,7 +189,7 @@ class MWException extends Exception {
 		} elseif ( self::isCommandLine() ) {
 			$message = $this->getText();
 			// T17602: STDERR may not be available
-			if ( defined( 'STDERR' ) ) {
+			if ( !defined( 'MW_PHPUNIT_TEST' ) && defined( 'STDERR' ) ) {
 				fwrite( STDERR, $message );
 			} else {
 				echo $message;

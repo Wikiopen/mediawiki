@@ -1,7 +1,5 @@
 <?php
 /**
- * Created on Sep 27, 2015
- *
  * Copyright © 2015 Wikimedia Foundation and contributors
  *
  * This program is free software; you can redistribute it and/or modify
@@ -106,19 +104,17 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 		}
 
 		if ( $params['user'] !== null ) {
-			$id = User::idFromName( $params['user'] );
-			if ( $id ) {
-				$this->addWhereFld( 'rev_user', $id );
-			} else {
-				$this->addWhereFld( 'rev_user_text', $params['user'] );
-			}
+			$actorQuery = ActorMigration::newMigration()
+				->getWhere( $db, 'rev_user', User::newFromName( $params['user'], false ) );
+			$this->addTables( $actorQuery['tables'] );
+			$this->addJoinConds( $actorQuery['joins'] );
+			$this->addWhere( $actorQuery['conds'] );
 		} elseif ( $params['excludeuser'] !== null ) {
-			$id = User::idFromName( $params['excludeuser'] );
-			if ( $id ) {
-				$this->addWhere( 'rev_user != ' . $id );
-			} else {
-				$this->addWhere( 'rev_user_text != ' . $db->addQuotes( $params['excludeuser'] ) );
-			}
+			$actorQuery = ActorMigration::newMigration()
+				->getWhere( $db, 'rev_user', User::newFromName( $params['excludeuser'], false ) );
+			$this->addTables( $actorQuery['tables'] );
+			$this->addJoinConds( $actorQuery['joins'] );
+			$this->addWhere( 'NOT(' . $actorQuery['conds'] . ')' );
 		}
 
 		if ( $params['user'] !== null || $params['excludeuser'] !== null ) {

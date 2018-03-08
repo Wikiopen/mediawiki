@@ -63,7 +63,7 @@ class ConvertExtensionToRegistration extends Maintenance {
 	}
 
 	protected function getAllGlobals() {
-		$processor = new ReflectionClass( 'ExtensionProcessor' );
+		$processor = new ReflectionClass( ExtensionProcessor::class );
 		$settings = $processor->getProperty( 'globalSettings' );
 		$settings->setAccessible( true );
 		return array_merge( $settings->getValue(), $this->formerGlobals );
@@ -144,6 +144,11 @@ class ConvertExtensionToRegistration extends Maintenance {
 				unset( $this->json[$key] );
 			}
 		}
+		// Set a requirement on the MediaWiki version that the current MANIFEST_VERSION
+		// was introduced in.
+		$out['requires'] = [
+			ExtensionRegistry::MEDIAWIKI_CORE => ExtensionRegistry::MANIFEST_VERSION_MW_VERSION
+		];
 		$out += $this->json;
 		// Put this at the bottom
 		$out['manifest_version'] = ExtensionRegistry::MANIFEST_VERSION;
@@ -303,5 +308,5 @@ class ConvertExtensionToRegistration extends Maintenance {
 	}
 }
 
-$maintClass = 'ConvertExtensionToRegistration';
+$maintClass = ConvertExtensionToRegistration::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

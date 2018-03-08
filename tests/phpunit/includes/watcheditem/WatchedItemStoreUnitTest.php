@@ -2,6 +2,7 @@
 use MediaWiki\Linker\LinkTarget;
 use Wikimedia\Rdbms\LoadBalancer;
 use Wikimedia\ScopedCallback;
+use Wikimedia\TestingAccessWrapper;
 
 /**
  * @author Addshore
@@ -104,8 +105,80 @@ class WatchedItemStoreUnitTest extends MediaWikiTestCase {
 		return new WatchedItemStore(
 			$loadBalancer,
 			$cache,
-			$readOnlyMode
+			$readOnlyMode,
+			1000
 		);
+	}
+
+	public function testClearWatchedItems() {
+		$user = $this->getMockNonAnonUserWithId( 7 );
+
+		$mockDb = $this->getMockDb();
+		$mockDb->expects( $this->once() )
+			->method( 'selectField' )
+			->with(
+				'watchlist',
+				'COUNT(*)',
+				[
+					'wl_user' => $user->getId(),
+				],
+				$this->isType( 'string' )
+			)
+			->will( $this->returnValue( 12 ) );
+		$mockDb->expects( $this->once() )
+			->method( 'delete' )
+			->with(
+				'watchlist',
+				[ 'wl_user' => 7 ],
+				$this->isType( 'string' )
+			);
+
+		$mockCache = $this->getMockCache();
+		$mockCache->expects( $this->never() )->method( 'get' );
+		$mockCache->expects( $this->never() )->method( 'set' );
+		$mockCache->expects( $this->once() )
+			->method( 'delete' )
+			->with( 'RM-KEY' );
+
+		$store = $this->newWatchedItemStore(
+			$this->getMockLoadBalancer( $mockDb ),
+			$mockCache,
+			$this->getMockReadOnlyMode()
+		);
+		TestingAccessWrapper::newFromObject( $store )
+			->cacheIndex = [ 0 => [ 'F' => [ 7 => 'RM-KEY', 9 => 'KEEP-KEY' ] ] ];
+
+		$this->assertTrue( $store->clearUserWatchedItems( $user ) );
+	}
+
+	public function testClearWatchedItems_tooManyItemsWatched() {
+		$user = $this->getMockNonAnonUserWithId( 7 );
+
+		$mockDb = $this->getMockDb();
+		$mockDb->expects( $this->once() )
+			->method( 'selectField' )
+			->with(
+				'watchlist',
+				'COUNT(*)',
+				[
+					'wl_user' => $user->getId(),
+				],
+				$this->isType( 'string' )
+			)
+			->will( $this->returnValue( 99999 ) );
+
+		$mockCache = $this->getMockCache();
+		$mockCache->expects( $this->never() )->method( 'get' );
+		$mockCache->expects( $this->never() )->method( 'set' );
+		$mockCache->expects( $this->never() )->method( 'delete' );
+
+		$store = $this->newWatchedItemStore(
+			$this->getMockLoadBalancer( $mockDb ),
+			$mockCache,
+			$this->getMockReadOnlyMode()
+		);
+
+		$this->assertFalse( $store->clearUserWatchedItems( $user ) );
 	}
 
 	public function testCountWatchedItems() {
@@ -370,7 +443,7 @@ class WatchedItemStoreUnitTest extends MediaWikiTestCase {
 			)
 			->will( $this->returnCallback( function ( $a, $conj ) {
 				$sqlConj = $conj === LIST_AND ? ' AND ' : ' OR ';
-				return join( $sqlConj, array_map( function ( $s ) {
+				return implode( $sqlConj, array_map( function ( $s ) {
 					return '(' . $s . ')';
 				}, $a
 				) );
@@ -467,7 +540,7 @@ class WatchedItemStoreUnitTest extends MediaWikiTestCase {
 			)
 			->will( $this->returnCallback( function ( $a, $conj ) {
 				$sqlConj = $conj === LIST_AND ? ' AND ' : ' OR ';
-				return join( $sqlConj, array_map( function ( $s ) {
+				return implode( $sqlConj, array_map( function ( $s ) {
 					return '(' . $s . ')';
 				}, $a
 				) );
@@ -1118,7 +1191,7 @@ class WatchedItemStoreUnitTest extends MediaWikiTestCase {
 			$this->getMockNonAnonUserWithId( 1 ),
 			new TitleValue( 0, 'SomeDbKey' )
 		);
-		$this->assertInstanceOf( 'WatchedItem', $watchedItem );
+		$this->assertInstanceOf( WatchedItem::class, $watchedItem );
 		$this->assertEquals( 1, $watchedItem->getUser()->getId() );
 		$this->assertEquals( 'SomeDbKey', $watchedItem->getLinkTarget()->getDBkey() );
 		$this->assertEquals( 0, $watchedItem->getLinkTarget()->getNamespace() );
@@ -1317,7 +1390,7 @@ class WatchedItemStoreUnitTest extends MediaWikiTestCase {
 			$this->getMockNonAnonUserWithId( 1 ),
 			new TitleValue( 0, 'SomeDbKey' )
 		);
-		$this->assertInstanceOf( 'WatchedItem', $watchedItem );
+		$this->assertInstanceOf( WatchedItem::class, $watchedItem );
 		$this->assertEquals( 1, $watchedItem->getUser()->getId() );
 		$this->assertEquals( 'SomeDbKey', $watchedItem->getLinkTarget()->getDBkey() );
 		$this->assertEquals( 0, $watchedItem->getLinkTarget()->getNamespace() );
@@ -1457,7 +1530,7 @@ class WatchedItemStoreUnitTest extends MediaWikiTestCase {
 		$this->assertInternalType( 'array', $watchedItems );
 		$this->assertCount( 2, $watchedItems );
 		foreach ( $watchedItems as $watchedItem ) {
-			$this->assertInstanceOf( 'WatchedItem', $watchedItem );
+			$this->assertInstanceOf( WatchedItem::class, $watchedItem );
 		}
 		$this->assertEquals(
 			new WatchedItem( $user, new TitleValue( 0, 'Foo1' ), '20151212010101' ),
@@ -1516,7 +1589,7 @@ class WatchedItemStoreUnitTest extends MediaWikiTestCase {
 			$this->getMockReadOnlyMode()
 		);
 
-		$this->setExpectedException( 'InvalidArgumentException' );
+		$this->setExpectedException( InvalidArgumentException::class );
 		$store->getWatchedItemsForUser(
 			$this->getMockNonAnonUserWithId( 1 ),
 			[ 'sort' => 'foo' ]

@@ -182,7 +182,7 @@ abstract class Maintenance {
 		if ( $count < 2 ) {
 			return false; // sanity
 		}
-		if ( $bt[0]['class'] !== 'Maintenance' || $bt[0]['function'] !== 'shouldExecute' ) {
+		if ( $bt[0]['class'] !== self::class || $bt[0]['function'] !== 'shouldExecute' ) {
 			return false; // last call should be to this function
 		}
 		$includeFuncs = [ 'require_once', 'require', 'include', 'include_once' ];
@@ -414,7 +414,10 @@ abstract class Maintenance {
 			$this->fatalError( $err, intval( $die ) );
 		}
 		$this->outputChanneled( false );
-		if ( PHP_SAPI == 'cli' || PHP_SAPI == 'phpdbg' ) {
+		if (
+			( PHP_SAPI == 'cli' || PHP_SAPI == 'phpdbg' ) &&
+			!defined( 'MW_PHPUNIT_TEST' )
+		) {
 			fwrite( STDERR, $err . "\n" );
 		} else {
 			print $err;
@@ -511,6 +514,8 @@ abstract class Maintenance {
 			"http://en.wikipedia.org. This is sometimes necessary because " .
 			"server name detection may fail in command line scripts.", false, true );
 		$this->addOption( 'profiler', 'Profiler output format (usually "text")', false, true );
+		// This is named --mwdebug, because --debug would conflict in the phpunit.php CLI script.
+		$this->addOption( 'mwdebug', 'Enable built-in MediaWiki development settings', false, true );
 
 		# Save generic options to display them separately in help
 		$this->mGenericParameters = $this->mParams;
@@ -1006,7 +1011,7 @@ abstract class Maintenance {
 
 		// ... append parameters ...
 		if ( $this->mParams ) {
-			$output .= " [--" . implode( array_keys( $this->mParams ), "|--" ) . "]";
+			$output .= " [--" . implode( "|--", array_keys( $this->mParams ) ) . "]";
 		}
 
 		// ... and append arguments.
@@ -1146,6 +1151,11 @@ abstract class Maintenance {
 			MediaWikiServices::getInstance()->getDBLoadBalancerFactory()->destroy();
 		}
 
+		# Apply debug settings
+		if ( $this->hasOption( 'mwdebug' ) ) {
+			require __DIR__ . '/../includes/DevelopmentSettings.php';
+		}
+
 		// Per-script profiling; useful for debugging
 		$this->activateProfiler();
 
@@ -1153,9 +1163,9 @@ abstract class Maintenance {
 
 		$wgShowSQLErrors = true;
 
-		MediaWiki\suppressWarnings();
+		Wikimedia\suppressWarnings();
 		set_time_limit( 0 );
-		MediaWiki\restoreWarnings();
+		Wikimedia\restoreWarnings();
 
 		$this->adjustMemoryLimit();
 	}
@@ -1206,6 +1216,9 @@ abstract class Maintenance {
 			$this->fatalError( "A copy of your installation's LocalSettings.php\n" .
 				"must exist and be readable in the source directory.\n" .
 				"Use --conf to specify it." );
+		}
+		if ( isset( $this->mOptions['server'] ) ) {
+			$_SERVER['SERVER_NAME'] = $this->mOptions['server'];
 		}
 		$wgCommandLineMode = true;
 
@@ -1281,7 +1294,7 @@ abstract class Maintenance {
 	 * This function has the same parameters as wfGetDB()
 	 *
 	 * @param int $db DB index (DB_REPLICA/DB_MASTER)
-	 * @param array $groups default: empty array
+	 * @param string|string[] $groups default: empty array
 	 * @param string|bool $wiki default: current wiki
 	 * @return IMaintainableDatabase
 	 */

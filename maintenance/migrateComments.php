@@ -205,7 +205,7 @@ class MigrateComments extends LoggedUpdateMaintenance {
 					$next = "$field > $value OR $field = $value AND ($next)";
 				}
 			}
-			$prompt = join( ' ', array_reverse( $prompt ) );
+			$prompt = implode( ' ', array_reverse( $prompt ) );
 			$this->output( "... $prompt\n" );
 			wfWaitForSlaves();
 		}
@@ -282,7 +282,6 @@ class MigrateComments extends LoggedUpdateMaintenance {
 			// Calculate the "next" condition
 			$next = [ $primaryKey . ' > ' . $dbw->addQuotes( $row->$primaryKey ) ];
 			$this->output( "... {$row->$primaryKey}\n" );
-			wfWaitForSlaves();
 		}
 
 		$this->output(
@@ -291,5 +290,5 @@ class MigrateComments extends LoggedUpdateMaintenance {
 	}
 }
 
-$maintClass = "MigrateComments";
+$maintClass = MigrateComments::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

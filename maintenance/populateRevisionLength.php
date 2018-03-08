@@ -76,8 +76,8 @@ class PopulateRevisionLength extends LoggedUpdateMaintenance {
 		$dbr = $this->getDB( DB_REPLICA );
 		$dbw = $this->getDB( DB_MASTER );
 		$batchSize = $this->getBatchSize();
-		$start = $dbw->selectField( $table, "MIN($idCol)", false, __METHOD__ );
-		$end = $dbw->selectField( $table, "MAX($idCol)", false, __METHOD__ );
+		$start = $dbw->selectField( $table, "MIN($idCol)", '', __METHOD__ );
+		$end = $dbw->selectField( $table, "MAX($idCol)", '', __METHOD__ );
 		if ( !$start || !$end ) {
 			$this->output( "...$table table seems to be empty.\n" );
 
@@ -117,7 +117,6 @@ class PopulateRevisionLength extends LoggedUpdateMaintenance {
 
 			$blockStart += $batchSize;
 			$blockEnd += $batchSize;
-			wfWaitForSlaves();
 		}
 
 		return $count;
@@ -157,5 +156,5 @@ class PopulateRevisionLength extends LoggedUpdateMaintenance {
 	}
 }
 
-$maintClass = "PopulateRevisionLength";
+$maintClass = PopulateRevisionLength::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

@@ -117,10 +117,9 @@ class MoveBatch extends Maintenance {
 			if ( $interval ) {
 				sleep( $interval );
 			}
-			wfWaitForSlaves();
 		}
 	}
 }
 
-$maintClass = "MoveBatch";
+$maintClass = MoveBatch::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

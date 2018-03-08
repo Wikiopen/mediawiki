@@ -6,7 +6,6 @@
  * @singleton
  */
 
-/* eslint-disable no-use-before-define */
 /* global Uint8Array */
 
 ( function ( mw, $ ) {
@@ -71,7 +70,7 @@
 				formatversion: 2,
 				action: 'query',
 				// If title is empty, user input is invalid, the API call will produce details about why
-				titles: title ? title.getPrefixedText() : this.nameToCheck,
+				titles: [ title ? title.getPrefixedText() : this.nameToCheck ],
 				prop: 'imageinfo',
 				iiprop: 'uploadwarning',
 				errorformat: 'html',
@@ -134,10 +133,7 @@
 
 			$spinner = $.createSpinner().insertAfter( $element );
 
-			( new mw.Api() ).get( {
-				formatversion: 2,
-				action: 'parse',
-				text: '{{' + template + '}}',
+			( new mw.Api() ).parse( '{{' + template + '}}', {
 				title: $( '#wpDestFile' ).val() || 'File:Sample.jpg',
 				prop: 'text',
 				pst: true,
@@ -150,7 +146,7 @@
 		},
 
 		processResult: function ( result, template, $previewContainer ) {
-			this.responseCache[ template ] = result.parse.text;
+			this.responseCache[ template ] = result;
 			this.showPreview( this.responseCache[ template ], $previewContainer );
 		},
 
@@ -196,7 +192,7 @@
 		}
 
 		// fillDestFile setup
-		$.each( mw.config.get( 'wgUploadSourceIds' ), function ( index, sourceId ) {
+		mw.config.get( 'wgUploadSourceIds' ).forEach( function ( sourceId ) {
 			$( '#' + sourceId ).change( function () {
 				var path, slash, backslash, fname;
 				if ( !mw.config.get( 'wgUploadAutoFill' ) ) {
@@ -311,6 +307,73 @@
 				sizeMsgs = sizeMsgs.slice( 1 );
 			}
 			return mw.msg( sizeMsgs[ 0 ], Math.round( s ) );
+		}
+
+		/**
+		 * Start loading a file into memory; when complete, pass it as a
+		 * data URL to the callback function. If the callbackBinary is set it will
+		 * first be read as binary and afterwards as data URL. Useful if you want
+		 * to do preprocessing on the binary data first.
+		 *
+		 * @param {File} file
+		 * @param {Function} callback
+		 * @param {Function} callbackBinary
+		 */
+		function fetchPreview( file, callback, callbackBinary ) {
+			var reader = new FileReader();
+			if ( callbackBinary && 'readAsBinaryString' in reader ) {
+				// To fetch JPEG metadata we need a binary string; start there.
+				// TODO
+				reader.onload = function () {
+					callbackBinary( reader.result );
+
+					// Now run back through the regular code path.
+					fetchPreview( file, callback );
+				};
+				reader.readAsBinaryString( file );
+			} else if ( callbackBinary && 'readAsArrayBuffer' in reader ) {
+				// readAsArrayBuffer replaces readAsBinaryString
+				// However, our JPEG metadata library wants a string.
+				// So, this is going to be an ugly conversion.
+				reader.onload = function () {
+					var i,
+						buffer = new Uint8Array( reader.result ),
+						string = '';
+					for ( i = 0; i < buffer.byteLength; i++ ) {
+						string += String.fromCharCode( buffer[ i ] );
+					}
+					callbackBinary( string );
+
+					// Now run back through the regular code path.
+					fetchPreview( file, callback );
+				};
+				reader.readAsArrayBuffer( file );
+			} else if ( 'URL' in window && 'createObjectURL' in window.URL ) {
+				// Supported in Firefox 4.0 and above <https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL>
+				// WebKit has it in a namespace for now but that's ok. ;)
+				//
+				// Lifetime of this URL is until document close, which is fine
+				// for Special:Upload -- if this code gets used on longer-running
+				// pages, add a revokeObjectURL() when it's no longer needed.
+				//
+				// Prefer this over readAsDataURL for Firefox 7 due to bug reading
+				// some SVG files from data URIs <https://bugzilla.mozilla.org/show_bug.cgi?id=694165>
+				callback( window.URL.createObjectURL( file ) );
+			} else {
+				// This ends up decoding the file to base-64 and back again, which
+				// feels horribly inefficient.
+				reader.onload = function () {
+					callback( reader.result );
+				};
+				reader.readAsDataURL( file );
+			}
+		}
+
+		/**
+		 * Clear the file upload preview area.
+		 */
+		function clearPreview() {
+			$( '#mw-upload-thumbnail' ).remove();
 		}
 
 		/**
@@ -435,73 +498,6 @@
 					meta = null;
 				}
 			} : null );
-		}
-
-		/**
-		 * Start loading a file into memory; when complete, pass it as a
-		 * data URL to the callback function. If the callbackBinary is set it will
-		 * first be read as binary and afterwards as data URL. Useful if you want
-		 * to do preprocessing on the binary data first.
-		 *
-		 * @param {File} file
-		 * @param {Function} callback
-		 * @param {Function} callbackBinary
-		 */
-		function fetchPreview( file, callback, callbackBinary ) {
-			var reader = new FileReader();
-			if ( callbackBinary && 'readAsBinaryString' in reader ) {
-				// To fetch JPEG metadata we need a binary string; start there.
-				// TODO
-				reader.onload = function () {
-					callbackBinary( reader.result );
-
-					// Now run back through the regular code path.
-					fetchPreview( file, callback );
-				};
-				reader.readAsBinaryString( file );
-			} else if ( callbackBinary && 'readAsArrayBuffer' in reader ) {
-				// readAsArrayBuffer replaces readAsBinaryString
-				// However, our JPEG metadata library wants a string.
-				// So, this is going to be an ugly conversion.
-				reader.onload = function () {
-					var i,
-						buffer = new Uint8Array( reader.result ),
-						string = '';
-					for ( i = 0; i < buffer.byteLength; i++ ) {
-						string += String.fromCharCode( buffer[ i ] );
-					}
-					callbackBinary( string );
-
-					// Now run back through the regular code path.
-					fetchPreview( file, callback );
-				};
-				reader.readAsArrayBuffer( file );
-			} else if ( 'URL' in window && 'createObjectURL' in window.URL ) {
-				// Supported in Firefox 4.0 and above <https://developer.mozilla.org/en/DOM/window.URL.createObjectURL>
-				// WebKit has it in a namespace for now but that's ok. ;)
-				//
-				// Lifetime of this URL is until document close, which is fine
-				// for Special:Upload -- if this code gets used on longer-running
-				// pages, add a revokeObjectURL() when it's no longer needed.
-				//
-				// Prefer this over readAsDataURL for Firefox 7 due to bug reading
-				// some SVG files from data URIs <https://bugzilla.mozilla.org/show_bug.cgi?id=694165>
-				callback( window.URL.createObjectURL( file ) );
-			} else {
-				// This ends up decoding the file to base-64 and back again, which
-				// feels horribly inefficient.
-				reader.onload = function () {
-					callback( reader.result );
-				};
-				reader.readAsDataURL( file );
-			}
-		}
-
-		/**
-		 * Clear the file upload preview area.
-		 */
-		function clearPreview() {
-			$( '#mw-upload-thumbnail' ).remove();
 		}
 
 		/**

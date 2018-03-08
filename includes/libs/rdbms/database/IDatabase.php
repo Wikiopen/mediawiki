@@ -19,6 +19,7 @@
  */
 namespace Wikimedia\Rdbms;
 
+use InvalidArgumentException;
 use Wikimedia\ScopedCallback;
 use RuntimeException;
 use UnexpectedValueException;
@@ -962,11 +963,11 @@ interface IDatabase {
 	 * Example usage:
 	 * @code
 	 *     $sql = $db->makeList( [
-	 *         'rev_user' => $id,
+	 *         'rev_page' => $id,
 	 *         $db->makeList( [ 'rev_minor' => 1, 'rev_len' < 500 ], $db::LIST_OR ] )
 	 *     ], $db::LIST_AND );
 	 * @endcode
-	 * This would set $sql to "rev_user = '$id' AND (rev_minor = '1' OR rev_len < '500')"
+	 * This would set $sql to "rev_page = '$id' AND (rev_minor = '1' OR rev_len < '500')"
 	 *
 	 * @param array $a Containing the data
 	 * @param int $mode IDatabase class constant:
@@ -1051,11 +1052,32 @@ interface IDatabase {
 	);
 
 	/**
+	 * Build a SUBSTRING function.
+	 *
+	 * Behavior for non-ASCII values is undefined.
+	 *
+	 * @param string $input Field name
+	 * @param int $startPosition Positive integer
+	 * @param int|null $length Non-negative integer length or null for no limit
+	 * @throws InvalidArgumentException
+	 * @return string SQL text
+	 * @since 1.31
+	 */
+	public function buildSubString( $input, $startPosition, $length = null );
+
+	/**
 	 * @param string $field Field or column to cast
 	 * @return string
 	 * @since 1.28
 	 */
 	public function buildStringCast( $field );
+
+	/**
+	 * @param string $field Field or column to cast
+	 * @return string
+	 * @since 1.31
+	 */
+	public function buildIntegerCast( $field );
 
 	/**
 	 * Returns true if DBs are assumed to be on potentially different servers
@@ -1255,6 +1277,11 @@ interface IDatabase {
 	 * INSERT SELECT wrapper. Takes data from a SELECT query and inserts it
 	 * into another table.
 	 *
+	 * @warning If the insert will use an auto-increment or sequence to
+	 *  determine the value of a column, this may break replication on
+	 *  databases using statement-based replication if the SELECT is not
+	 *  deterministically ordered.
+	 *
 	 * @param string $destTable The table name to insert into
 	 * @param string|array $srcTable May be either a table name, or an array of table names
 	 *    to include in a join.
@@ -1271,7 +1298,9 @@ interface IDatabase {
 	 * @param string $fname The function name of the caller, from __METHOD__
 	 *
 	 * @param array $insertOptions Options for the INSERT part of the query, see
-	 *    IDatabase::insert() for details.
+	 *    IDatabase::insert() for details. Also, one additional option is
+	 *    available: pass 'NO_AUTO_COLUMNS' to hint that the query does not use
+	 *    an auto-increment or sequence to determine any column values.
 	 * @param array $selectOptions Options for the SELECT part of the query, see
 	 *    IDatabase::select() for details.
 	 * @param array $selectJoinConds Join conditions for the SELECT part of the query, see
@@ -1771,7 +1800,7 @@ interface IDatabase {
 	public function setSchemaVars( $vars );
 
 	/**
-	 * Check to see if a named lock is available (non-blocking)
+	 * Check to see if a named lock is not locked by any thread (non-blocking)
 	 *
 	 * @param string $lockName Name of lock to poll
 	 * @param string $method Name of method calling us

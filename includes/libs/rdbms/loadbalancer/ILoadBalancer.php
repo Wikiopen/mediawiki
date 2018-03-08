@@ -170,14 +170,22 @@ interface ILoadBalancer {
 	public function getAnyOpenConnection( $i );
 
 	/**
-	 * Get a connection by index
+	 * Get a connection handle by server index
 	 *
-	 * Avoid using CONN_TRX_AUTO with sqlite (e.g. check getServerType() first)
+	 * The CONN_TRX_AUTO flag is ignored for databases with ATTR_DB_LEVEL_LOCKING
+	 * (e.g. sqlite) in order to avoid deadlocks. ILoadBalancer::getServerAttributes()
+	 * can be used to check such flags beforehand.
+	 *
+	 * If the caller uses $domain or sets CONN_TRX_AUTO in $flags, then it must also
+	 * call ILoadBalancer::reuseConnection() on the handle when finished using it.
+	 * In all other cases, this is not necessary, though not harmful either.
 	 *
 	 * @param int $i Server index or DB_MASTER/DB_REPLICA
 	 * @param array|string|bool $groups Query group(s), or false for the generic reader
 	 * @param string|bool $domain Domain ID, or false for the current domain
 	 * @param int $flags Bitfield of CONN_* class constants
+	 *
+	 * @note This method throws DBAccessError if ILoadBalancer::disable() was called
 	 *
 	 * @throws DBError
 	 * @return Database
@@ -193,14 +201,16 @@ interface ILoadBalancer {
 	 * @param IDatabase $conn
 	 * @throws InvalidArgumentException
 	 */
-	public function reuseConnection( $conn );
+	public function reuseConnection( IDatabase $conn );
 
 	/**
 	 * Get a database connection handle reference
 	 *
 	 * The handle's methods simply wrap those of a Database handle
 	 *
-	 * Avoid using CONN_TRX_AUTO with sqlite (e.g. check getServerType() first)
+	 * The CONN_TRX_AUTO flag is ignored for databases with ATTR_DB_LEVEL_LOCKING
+	 * (e.g. sqlite) in order to avoid deadlocks. ILoadBalancer::getServerAttributes()
+	 * can be used to check such flags beforehand.
 	 *
 	 * @see ILoadBalancer::getConnection() for parameter information
 	 *
@@ -217,7 +227,9 @@ interface ILoadBalancer {
 	 *
 	 * The handle's methods simply wrap those of a Database handle
 	 *
-	 * Avoid using CONN_TRX_AUTO with sqlite (e.g. check getServerType() first)
+	 * The CONN_TRX_AUTO flag is ignored for databases with ATTR_DB_LEVEL_LOCKING
+	 * (e.g. sqlite) in order to avoid deadlocks. ILoadBalancer::getServerAttributes()
+	 * can be used to check such flags beforehand.
 	 *
 	 * @see ILoadBalancer::getConnection() for parameter information
 	 *
@@ -234,7 +246,9 @@ interface ILoadBalancer {
 	 *
 	 * The handle's methods simply wrap those of a Database handle
 	 *
-	 * Avoid using CONN_TRX_AUTO with sqlite (e.g. check getServerType() first)
+	 * The CONN_TRX_AUTO flag is ignored for databases with ATTR_DB_LEVEL_LOCKING
+	 * (e.g. sqlite) in order to avoid deadlocks. ILoadBalancer::getServerAttributes()
+	 * can be used to check such flags beforehand.
 	 *
 	 * @see ILoadBalancer::getConnection() for parameter information
 	 *
@@ -252,9 +266,15 @@ interface ILoadBalancer {
 	 * The index must be an actual index into the array. If a connection to the server is
 	 * already open and not considered an "in use" foreign connection, this simply returns it.
 	 *
-	 * Avoid using CONN_TRX_AUTO with sqlite (e.g. check getServerType() first)
+	 * Avoid using CONN_TRX_AUTO for databases with ATTR_DB_LEVEL_LOCKING (e.g. sqlite) in
+	 * order to avoid deadlocks. ILoadBalancer::getServerAttributes() can be used to check
+	 * such flags beforehand.
 	 *
-	 * @note If disable() was called on this LoadBalancer, this method will throw a DBAccessError.
+	 * If the caller uses $domain or sets CONN_TRX_AUTO in $flags, then it must also
+	 * call ILoadBalancer::reuseConnection() on the handle when finished using it.
+	 * In all other cases, this is not necessary, though not harmful either.
+	 *
+	 * @note This method throws DBAccessError if ILoadBalancer::disable() was called
 	 *
 	 * @param int $i Server index (does not support DB_MASTER/DB_REPLICA)
 	 * @param string|bool $domain Domain ID, or false for the current domain
@@ -308,6 +328,13 @@ interface ILoadBalancer {
 	 * @since 1.30
 	 */
 	public function getServerType( $i );
+
+	/**
+	 * @param int $i Server index
+	 * @return array (Database::ATTRIBUTE_* constant => value) for all such constants
+	 * @since 1.31
+	 */
+	public function getServerAttributes( $i );
 
 	/**
 	 * Get the current master position for chronology control purposes

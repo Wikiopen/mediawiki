@@ -2,8 +2,6 @@
 /**
  * API for MediaWiki 1.12+
  *
- * Created on May 10, 2010
- *
  * Copyright © 2010 Sam Reed
  * Copyright © 2008 Vasiliev Victor vasilvv@gmail.com,
  * based on ApiQueryAllPages.php
@@ -43,7 +41,7 @@ class ApiQueryFilearchive extends ApiQueryBase {
 
 		$user = $this->getUser();
 		$db = $this->getDB();
-		$commentStore = new CommentStore( 'fa_description' );
+		$commentStore = CommentStore::getStore();
 
 		$params = $this->extractRequestParams();
 
@@ -157,7 +155,7 @@ class ApiQueryFilearchive extends ApiQueryBase {
 			if ( $fld_description &&
 				Revision::userCanBitfield( $row->fa_deleted, File::DELETED_COMMENT, $user )
 			) {
-				$file['description'] = $commentStore->getComment( $row )->text;
+				$file['description'] = $commentStore->getComment( 'fa_description', $row )->text;
 				if ( isset( $prop['parseddescription'] ) ) {
 					$file['parseddescription'] = Linker::formatComment(
 						$file['description'], $title );

@@ -23,89 +23,10 @@
  * @copyright © 2013 Wikimedia Foundation and contributors
  */
 
-use Wikimedia\Rdbms\TransactionProfiler;
-use Wikimedia\Rdbms\DatabaseDomain;
 use Wikimedia\Rdbms\MySQLMasterPos;
-use Wikimedia\Rdbms\DatabaseMysqlBase;
-use Wikimedia\Rdbms\Database;
+use Wikimedia\TestingAccessWrapper;
 
-/**
- * Fake class around abstract class so we can call concrete methods.
- */
-class FakeDatabaseMysqlBase extends DatabaseMysqlBase {
-	// From Database
-	function __construct() {
-		$this->profiler = new ProfilerStub( [] );
-		$this->trxProfiler = new TransactionProfiler();
-		$this->cliMode = true;
-		$this->connLogger = new \Psr\Log\NullLogger();
-		$this->queryLogger = new \Psr\Log\NullLogger();
-		$this->errorLogger = function ( Exception $e ) {
-			wfWarn( get_class( $e ) . ": {$e->getMessage()}" );
-		};
-		$this->currentDomain = DatabaseDomain::newUnspecified();
-	}
-
-	protected function closeConnection() {
-	}
-
-	protected function doQuery( $sql ) {
-	}
-
-	// From DatabaseMysqli
-	protected function mysqlConnect( $realServer ) {
-	}
-
-	protected function mysqlSetCharset( $charset ) {
-	}
-
-	protected function mysqlFreeResult( $res ) {
-	}
-
-	protected function mysqlFetchObject( $res ) {
-	}
-
-	protected function mysqlFetchArray( $res ) {
-	}
-
-	protected function mysqlNumRows( $res ) {
-	}
-
-	protected function mysqlNumFields( $res ) {
-	}
-
-	protected function mysqlFieldName( $res, $n ) {
-	}
-
-	protected function mysqlFieldType( $res, $n ) {
-	}
-
-	protected function mysqlDataSeek( $res, $row ) {
-	}
-
-	protected function mysqlError( $conn = null ) {
-	}
-
-	protected function mysqlFetchField( $res, $n ) {
-	}
-
-	protected function mysqlRealEscapeString( $s ) {
-	}
-
-	function insertId() {
-	}
-
-	function lastErrno() {
-	}
-
-	function affectedRows() {
-	}
-
-	function getServerVersion() {
-	}
-}
-
-class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
+class DatabaseMysqlBaseTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -114,7 +35,11 @@ class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
 	 * @covers Wikimedia\Rdbms\DatabaseMysqlBase::addIdentifierQuotes
 	 */
 	public function testAddIdentifierQuotes( $expected, $in ) {
-		$db = new FakeDatabaseMysqlBase();
+		$db = $this->getMockBuilder( DatabaseMysqli::class )
+			->disableOriginalConstructor()
+			->setMethods( null )
+			->getMock();
+
 		$quoted = $db->addIdentifierQuotes( $in );
 		$this->assertEquals( $expected, $quoted );
 	}
@@ -176,7 +101,7 @@ class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
 	}
 
 	private function getMockForViews() {
-		$db = $this->getMockBuilder( 'DatabaseMysqli' )
+		$db = $this->getMockBuilder( DatabaseMysqli::class )
 			->disableOriginalConstructor()
 			->setMethods( [ 'fetchRow', 'query' ] )
 			->getMock();
@@ -212,17 +137,32 @@ class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
 			$db->listViews( '' ) );
 	}
 
+	public function testBinLogName() {
+		$pos = new MySQLMasterPos( "db1052.2424/4643", 1 );
+
+		$this->assertEquals( "db1052", $pos->binlog );
+		$this->assertEquals( "db1052.2424", $pos->getLogFile() );
+		$this->assertEquals( [ 2424, 4643 ], $pos->pos );
+	}
+
 	/**
 	 * @dataProvider provideComparePositions
 	 * @covers Wikimedia\Rdbms\MySQLMasterPos
 	 */
-	public function testHasReached( MySQLMasterPos $lowerPos, MySQLMasterPos $higherPos, $match ) {
+	public function testHasReached(
+		MySQLMasterPos $lowerPos, MySQLMasterPos $higherPos, $match, $hetero
+	) {
 		if ( $match ) {
 			$this->assertTrue( $lowerPos->channelsMatch( $higherPos ) );
 
-			$this->assertTrue( $higherPos->hasReached( $lowerPos ) );
-			$this->assertTrue( $higherPos->hasReached( $higherPos ) );
+			if ( $hetero ) {
+				// Each position is has one channel higher than the other
+				$this->assertFalse( $higherPos->hasReached( $lowerPos ) );
+			} else {
+				$this->assertTrue( $higherPos->hasReached( $lowerPos ) );
+			}
 			$this->assertTrue( $lowerPos->hasReached( $lowerPos ) );
+			$this->assertTrue( $higherPos->hasReached( $higherPos ) );
 			$this->assertFalse( $lowerPos->hasReached( $higherPos ) );
 		} else { // channels don't match
 			$this->assertFalse( $lowerPos->channelsMatch( $higherPos ) );
@@ -233,53 +173,100 @@ class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
 	}
 
 	public static function provideComparePositions() {
+		$now = microtime( true );
+
 		return [
 			// Binlog style
 			[
-				new MySQLMasterPos( 'db1034-bin.000976', '843431247' ),
-				new MySQLMasterPos( 'db1034-bin.000976', '843431248' ),
-				true
+				new MySQLMasterPos( 'db1034-bin.000976/843431247', $now ),
+				new MySQLMasterPos( 'db1034-bin.000976/843431248', $now ),
+				true,
+				false
 			],
 			[
-				new MySQLMasterPos( 'db1034-bin.000976', '999' ),
-				new MySQLMasterPos( 'db1034-bin.000976', '1000' ),
-				true
+				new MySQLMasterPos( 'db1034-bin.000976/999', $now ),
+				new MySQLMasterPos( 'db1034-bin.000976/1000', $now ),
+				true,
+				false
 			],
 			[
-				new MySQLMasterPos( 'db1034-bin.000976', '999' ),
-				new MySQLMasterPos( 'db1035-bin.000976', '1000' ),
+				new MySQLMasterPos( 'db1034-bin.000976/999', $now ),
+				new MySQLMasterPos( 'db1035-bin.000976/1000', $now ),
+				false,
 				false
 			],
 			// MySQL GTID style
 			[
-				new MySQLMasterPos( 'db1-bin.2', '1', '3E11FA47-71CA-11E1-9E33-C80AA9429562:23' ),
-				new MySQLMasterPos( 'db1-bin.2', '2', '3E11FA47-71CA-11E1-9E33-C80AA9429562:24' ),
-				true
+				new MySQLMasterPos( '3E11FA47-71CA-11E1-9E33-C80AA9429562:23', $now ),
+				new MySQLMasterPos( '3E11FA47-71CA-11E1-9E33-C80AA9429562:24', $now ),
+				true,
+				false
 			],
 			[
-				new MySQLMasterPos( 'db1-bin.2', '1', '3E11FA47-71CA-11E1-9E33-C80AA9429562:99' ),
-				new MySQLMasterPos( 'db1-bin.2', '2', '3E11FA47-71CA-11E1-9E33-C80AA9429562:100' ),
-				true
+				new MySQLMasterPos( '3E11FA47-71CA-11E1-9E33-C80AA9429562:99', $now ),
+				new MySQLMasterPos( '3E11FA47-71CA-11E1-9E33-C80AA9429562:100', $now ),
+				true,
+				false
 			],
 			[
-				new MySQLMasterPos( 'db1-bin.2', '1', '3E11FA47-71CA-11E1-9E33-C80AA9429562:99' ),
-				new MySQLMasterPos( 'db1-bin.2', '2', '1E11FA47-71CA-11E1-9E33-C80AA9429562:100' ),
+				new MySQLMasterPos( '3E11FA47-71CA-11E1-9E33-C80AA9429562:99', $now ),
+				new MySQLMasterPos( '1E11FA47-71CA-11E1-9E33-C80AA9429562:100', $now ),
+				false,
 				false
 			],
 			// MariaDB GTID style
 			[
-				new MySQLMasterPos( 'db1-bin.2', '1', '255-11-23' ),
-				new MySQLMasterPos( 'db1-bin.2', '2', '255-11-24' ),
+				new MySQLMasterPos( '255-11-23', $now ),
+				new MySQLMasterPos( '255-11-24', $now ),
+				true,
+				false
+			],
+			[
+				new MySQLMasterPos( '255-11-99', $now ),
+				new MySQLMasterPos( '255-11-100', $now ),
+				true,
+				false
+			],
+			[
+				new MySQLMasterPos( '255-11-999', $now ),
+				new MySQLMasterPos( '254-11-1000', $now ),
+				false,
+				false
+			],
+			[
+				new MySQLMasterPos( '255-11-23,256-12-50', $now ),
+				new MySQLMasterPos( '255-11-24', $now ),
+				true,
+				false
+			],
+			[
+				new MySQLMasterPos( '255-11-99,256-12-50,257-12-50', $now ),
+				new MySQLMasterPos( '255-11-1000', $now ),
+				true,
+				false
+			],
+			[
+				new MySQLMasterPos( '255-11-23,256-12-50', $now ),
+				new MySQLMasterPos( '255-11-24,155-52-63', $now ),
+				true,
+				false
+			],
+			[
+				new MySQLMasterPos( '255-11-99,256-12-50,257-12-50', $now ),
+				new MySQLMasterPos( '255-11-1000,256-12-51', $now ),
+				true,
+				false
+			],
+			[
+				new MySQLMasterPos( '255-11-99,256-12-50', $now ),
+				new MySQLMasterPos( '255-13-1000,256-14-49', $now ),
+				true,
 				true
 			],
 			[
-				new MySQLMasterPos( 'db1-bin.2', '1', '255-11-99' ),
-				new MySQLMasterPos( 'db1-bin.2', '2', '255-11-100' ),
-				true
-			],
-			[
-				new MySQLMasterPos( 'db1-bin.2', '1', '255-11-999' ),
-				new MySQLMasterPos( 'db1-bin.2', '2', '254-11-1000' ),
+				new MySQLMasterPos( '253-11-999,255-11-999', $now ),
+				new MySQLMasterPos( '254-11-1000', $now ),
+				false,
 				false
 			],
 		];
@@ -292,30 +279,67 @@ class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
 	public function testChannelsMatch( MySQLMasterPos $pos1, MySQLMasterPos $pos2, $matches ) {
 		$this->assertEquals( $matches, $pos1->channelsMatch( $pos2 ) );
 		$this->assertEquals( $matches, $pos2->channelsMatch( $pos1 ) );
+
+		$roundtripPos = new MySQLMasterPos( (string)$pos1, 1 );
+		$this->assertEquals( (string)$pos1, (string)$roundtripPos );
 	}
 
 	public static function provideChannelPositions() {
+		$now = microtime( true );
+
 		return [
 			[
-				new MySQLMasterPos( 'db1034-bin.000876', '44' ),
-				new MySQLMasterPos( 'db1034-bin.000976', '74' ),
+				new MySQLMasterPos( 'db1034-bin.000876/44', $now ),
+				new MySQLMasterPos( 'db1034-bin.000976/74', $now ),
 				true
 			],
 			[
-				new MySQLMasterPos( 'db1052-bin.000976', '999' ),
-				new MySQLMasterPos( 'db1052-bin.000976', '1000' ),
+				new MySQLMasterPos( 'db1052-bin.000976/999', $now ),
+				new MySQLMasterPos( 'db1052-bin.000976/1000', $now ),
 				true
 			],
 			[
-				new MySQLMasterPos( 'db1066-bin.000976', '9999' ),
-				new MySQLMasterPos( 'db1035-bin.000976', '10000' ),
+				new MySQLMasterPos( 'db1066-bin.000976/9999', $now ),
+				new MySQLMasterPos( 'db1035-bin.000976/10000', $now ),
 				false
 			],
 			[
-				new MySQLMasterPos( 'db1066-bin.000976', '9999' ),
-				new MySQLMasterPos( 'trump2016.000976', '10000' ),
+				new MySQLMasterPos( 'db1066-bin.000976/9999', $now ),
+				new MySQLMasterPos( 'trump2016.000976/10000', $now ),
 				false
 			],
+		];
+	}
+
+	/**
+	 * @dataProvider provideCommonDomainGTIDs
+	 * @covers Wikimedia\Rdbms\MySQLMasterPos
+	 */
+	public function testCommonGtidDomains( MySQLMasterPos $pos, MySQLMasterPos $ref, $gtids ) {
+		$this->assertEquals( $gtids, MySQLMasterPos::getCommonDomainGTIDs( $pos, $ref ) );
+	}
+
+	public static function provideCommonDomainGTIDs() {
+		return [
+			[
+				new MySQLMasterPos( '255-13-99,256-12-50,257-14-50', 1 ),
+				new MySQLMasterPos( '255-11-1000', 1 ),
+				[ '255-13-99' ]
+			],
+			[
+				new MySQLMasterPos(
+					'2E11FA47-71CA-11E1-9E33-C80AA9429562:5,' .
+					'3E11FA47-71CA-11E1-9E33-C80AA9429562:99,' .
+					'7E11FA47-71CA-11E1-9E33-C80AA9429562:30',
+					1
+				),
+				new MySQLMasterPos(
+					'1E11FA47-71CA-11E1-9E33-C80AA9429562:100,' .
+					'3E11FA47-71CA-11E1-9E33-C80AA9429562:66',
+					1
+				),
+				[ '3E11FA47-71CA-11E1-9E33-C80AA9429562:99' ]
+			]
 		];
 	}
 
@@ -325,7 +349,7 @@ class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
 	 * @covers Wikimedia\Rdbms\DatabaseMysqlBase::getLagFromPtHeartbeat
 	 */
 	public function testPtHeartbeat( $lag ) {
-		$db = $this->getMockBuilder( 'DatabaseMysqli' )
+		$db = $this->getMockBuilder( DatabaseMysqli::class )
 			->disableOriginalConstructor()
 			->setMethods( [
 				'getLagDetectionMethod', 'getHeartbeatData', 'getMasterServerInfo' ] )
@@ -374,22 +398,123 @@ class DatabaseMysqlBaseTest extends PHPUnit_Framework_TestCase {
 	}
 
 	/**
-	 * @expectedException UnexpectedValueException
-	 * @covers Wikimedia\Rdbms\Database::setFlag
+	 * @covers Wikimedia\Rdbms\MySQLMasterPos
 	 */
-	public function testDBOIgnoreSet() {
-		$db = new FakeDatabaseMysqlBase();
+	public function testSerialize() {
+		$pos = new MySQLMasterPos( '3E11FA47-71CA-11E1-9E33-C80AA9429562:99', 53636363 );
+		$roundtripPos = unserialize( serialize( $pos ) );
 
-		$db->setFlag( Database::DBO_IGNORE );
+		$this->assertEquals( $pos, $roundtripPos );
+
+		$pos = new MySQLMasterPos( '255-11-23', 53636363 );
+		$roundtripPos = unserialize( serialize( $pos ) );
+
+		$this->assertEquals( $pos, $roundtripPos );
 	}
 
 	/**
-	 * @expectedException UnexpectedValueException
-	 * @covers Wikimedia\Rdbms\Database::clearFlag
+	 * @covers Wikimedia\Rdbms\DatabaseMysqlBase::isInsertSelectSafe
+	 * @dataProvider provideInsertSelectCases
 	 */
-	public function testDBOIgnoreClear() {
-		$db = new FakeDatabaseMysqlBase();
+	public function testInsertSelectIsSafe( $insertOpts, $selectOpts, $row, $safe ) {
+		$db = $this->getMockBuilder( DatabaseMysqli::class )
+			->disableOriginalConstructor()
+			->setMethods( [ 'getReplicationSafetyInfo' ] )
+			->getMock();
+		$db->method( 'getReplicationSafetyInfo' )->willReturn( (object)$row );
+		$dbw = TestingAccessWrapper::newFromObject( $db );
 
-		$db->clearFlag( Database::DBO_IGNORE );
+		$this->assertEquals( $safe, $dbw->isInsertSelectSafe( $insertOpts, $selectOpts ) );
 	}
+
+	public function provideInsertSelectCases() {
+		return [
+			[
+				[],
+				[],
+				[
+					'innodb_autoinc_lock_mode' => '2',
+					'binlog_format' => 'ROW',
+				],
+				true
+			],
+			[
+				[],
+				[ 'LIMIT' => 100 ],
+				[
+					'innodb_autoinc_lock_mode' => '2',
+					'binlog_format' => 'ROW',
+				],
+				true
+			],
+			[
+				[],
+				[ 'LIMIT' => 100 ],
+				[
+					'innodb_autoinc_lock_mode' => '0',
+					'binlog_format' => 'STATEMENT',
+				],
+				false
+			],
+			[
+				[],
+				[],
+				[
+					'innodb_autoinc_lock_mode' => '2',
+					'binlog_format' => 'STATEMENT',
+				],
+				false
+			],
+			[
+				[ 'NO_AUTO_COLUMNS' ],
+				[ 'LIMIT' => 100 ],
+				[
+					'innodb_autoinc_lock_mode' => '0',
+					'binlog_format' => 'STATEMENT',
+				],
+				false
+			],
+			[
+				[],
+				[],
+				[
+					'innodb_autoinc_lock_mode' => 0,
+					'binlog_format' => 'STATEMENT',
+				],
+				true
+			],
+			[
+				[ 'NO_AUTO_COLUMNS' ],
+				[],
+				[
+					'innodb_autoinc_lock_mode' => 2,
+					'binlog_format' => 'STATEMENT',
+				],
+				true
+			],
+			[
+				[ 'NO_AUTO_COLUMNS' ],
+				[],
+				[
+					'innodb_autoinc_lock_mode' => 0,
+					'binlog_format' => 'STATEMENT',
+				],
+				true
+			],
+
+		];
+	}
+
+	/**
+	 * @covers \Wikimedia\Rdbms\DatabaseMysqlBase::buildIntegerCast
+	 */
+	public function testBuildIntegerCast() {
+		$db = $this->getMockBuilder( DatabaseMysqli::class )
+			->disableOriginalConstructor()
+			->setMethods( null )
+			->getMock();
+		$output = $db->buildIntegerCast( 'fieldName' );
+		$this->assertSame( 'CAST( fieldName AS SIGNED )', $output );
+	}
+
 }

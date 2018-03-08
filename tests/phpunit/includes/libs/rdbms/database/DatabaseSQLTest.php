@@ -1,12 +1,13 @@
 <?php
 
+use InvalidArgumentException;
 use Wikimedia\Rdbms\LikeMatch;
 
 /**
  * Test the parts of the Database abstract class that deal
  * with creating SQL text.
  */
-class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
+class DatabaseSQLTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -63,6 +64,44 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 				"SELECT field,field2 AS alias " .
 					"FROM table " .
 					"WHERE alias = 'text'"
+			],
+			[
+				[
+					'tables' => 'table',
+					'fields' => [ 'field', 'alias' => 'field2' ],
+					'conds' => 'alias = \'text\'',
+				],
+				"SELECT field,field2 AS alias " .
+				"FROM table " .
+				"WHERE alias = 'text'"
+			],
+			[
+				[
+					'tables' => 'table',
+					'fields' => [ 'field', 'alias' => 'field2' ],
+					'conds' => [],
+				],
+				"SELECT field,field2 AS alias " .
+				"FROM table"
+			],
+			[
+				[
+					'tables' => 'table',
+					'fields' => [ 'field', 'alias' => 'field2' ],
+					'conds' => '',
+				],
+				"SELECT field,field2 AS alias " .
+				"FROM table"
+			],
+			[
+				[
+					'tables' => 'table',
+					'fields' => [ 'field', 'alias' => 'field2' ],
+					'conds' => '0', // T188314
+				],
+				"SELECT field,field2 AS alias " .
+				"FROM table " .
+				"WHERE 0"
 			],
 			[
 				[
@@ -457,7 +496,7 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 			isset( $sql['selectOptions'] ) ? $sql['selectOptions'] : [],
 			isset( $sql['selectJoinConds'] ) ? $sql['selectJoinConds'] : []
 		);
-		$this->assertLastSqlDb( implode( '; ', [ $sqlSelect, $sqlInsert ] ), $dbWeb );
+		$this->assertLastSqlDb( implode( '; ', [ $sqlSelect, 'BEGIN', $sqlInsert, 'COMMIT' ] ), $dbWeb );
 	}
 
 	public static function provideInsertSelect() {
@@ -518,6 +557,7 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 					'srcTable' => [ 'select_table1', 'select_table2' ],
 					'varMap' => [ 'field_insert' => 'field_select', 'field' => 'field2' ],
 					'conds' => [ 'field' => 2 ],
+					'insertOptions' => [ 'NO_AUTO_COLUMNS' ],
 					'selectOptions' => [ 'ORDER BY' => 'field', 'FORCE INDEX' => [ 'select_table1' => 'index1' ] ],
 					'selectJoinConds' => [
 						'select_table2' => [ 'LEFT JOIN', [ 'select_table1.foo = select_table2.bar' ] ],
@@ -535,6 +575,30 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 				"INSERT INTO insert_table (field_insert,field) VALUES ('0','1')"
 			],
 		];
+	}
+
+	public function testInsertSelectBatching() {
+		$dbWeb = new DatabaseTestHelper( __CLASS__, [ 'cliMode' => false ] );
+		$rows = [];
+		for ( $i = 0; $i <= 25000; $i++ ) {
+			$rows[] = [ 'field' => $i ];
+		}
+		$dbWeb->forceNextResult( $rows );
+		$dbWeb->insertSelect(
+			'insert_table',
+			'select_table',
+			[ 'field' => 'field2' ],
+			'*',
+			__METHOD__
+		);
+		$this->assertLastSqlDb( implode( '; ', [
+			'SELECT field2 AS field FROM select_table WHERE *   FOR UPDATE',
+			'BEGIN',
+			"INSERT INTO insert_table (field) VALUES ('" . implode( "'),('", range( 0, 9999 ) ) . "')",
+			"INSERT INTO insert_table (field) VALUES ('" . implode( "'),('", range( 10000, 19999 ) ) . "')",
+			"INSERT INTO insert_table (field) VALUES ('" . implode( "'),('", range( 20000, 25000 ) ) . "')",
+			'COMMIT'
+		] ), $dbWeb );
 	}
 
 	/**
@@ -559,11 +623,11 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 					'uniqueIndexes' => [ 'field' ],
 					'rows' => [ 'field' => 'text', 'field2' => 'text2' ],
 				],
-				"DELETE FROM replace_table " .
-					"WHERE ( field='text' ); " .
+				"BEGIN; DELETE FROM replace_table " .
+					"WHERE (field = 'text'); " .
 					"INSERT INTO replace_table " .
 					"(field,field2) " .
-					"VALUES ('text','text2')"
+					"VALUES ('text','text2'); COMMIT"
 			],
 			[
 				[
@@ -575,11 +639,11 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 						'md_deps' => 'deps',
 					],
 				],
-				"DELETE FROM module_deps " .
-					"WHERE ( md_module='module' AND md_skin='skin' ); " .
+				"BEGIN; DELETE FROM module_deps " .
+					"WHERE (md_module = 'module' AND md_skin = 'skin'); " .
 					"INSERT INTO module_deps " .
 					"(md_module,md_skin,md_deps) " .
-					"VALUES ('module','skin','deps')"
+					"VALUES ('module','skin','deps'); COMMIT"
 			],
 			[
 				[
@@ -597,16 +661,16 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 						],
 					],
 				],
-				"DELETE FROM module_deps " .
-					"WHERE ( md_module='module' AND md_skin='skin' ); " .
+				"BEGIN; DELETE FROM module_deps " .
+					"WHERE (md_module = 'module' AND md_skin = 'skin'); " .
 					"INSERT INTO module_deps " .
 					"(md_module,md_skin,md_deps) " .
 					"VALUES ('module','skin','deps'); " .
 					"DELETE FROM module_deps " .
-					"WHERE ( md_module='module2' AND md_skin='skin2' ); " .
+					"WHERE (md_module = 'module2' AND md_skin = 'skin2'); " .
 					"INSERT INTO module_deps " .
 					"(md_module,md_skin,md_deps) " .
-					"VALUES ('module2','skin2','deps2')"
+					"VALUES ('module2','skin2','deps2'); COMMIT"
 			],
 			[
 				[
@@ -624,16 +688,16 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 						],
 					],
 				],
-				"DELETE FROM module_deps " .
-					"WHERE ( md_module='module' ) OR ( md_skin='skin' ); " .
+				"BEGIN; DELETE FROM module_deps " .
+					"WHERE (md_module = 'module') OR (md_skin = 'skin'); " .
 					"INSERT INTO module_deps " .
 					"(md_module,md_skin,md_deps) " .
 					"VALUES ('module','skin','deps'); " .
 					"DELETE FROM module_deps " .
-					"WHERE ( md_module='module2' ) OR ( md_skin='skin2' ); " .
+					"WHERE (md_module = 'module2') OR (md_skin = 'skin2'); " .
 					"INSERT INTO module_deps " .
 					"(md_module,md_skin,md_deps) " .
-					"VALUES ('module2','skin2','deps2')"
+					"VALUES ('module2','skin2','deps2'); COMMIT"
 			],
 			[
 				[
@@ -645,9 +709,9 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 						'md_deps' => 'deps',
 					],
 				],
-				"INSERT INTO module_deps " .
+				"BEGIN; INSERT INTO module_deps " .
 					"(md_module,md_skin,md_deps) " .
-					"VALUES ('module','skin','deps')"
+					"VALUES ('module','skin','deps'); COMMIT"
 			],
 		];
 	}
@@ -1151,4 +1215,46 @@ class DatabaseSQLTest extends PHPUnit_Framework_TestCase {
 		$this->assertFalse( $this->database->tableExists( "tmp_table_2", __METHOD__ ) );
 		$this->assertFalse( $this->database->tableExists( "tmp_table_3", __METHOD__ ) );
 	}
+
+	public function provideBuildSubstring() {
+		yield [ 'someField', 1, 2, 'SUBSTRING(someField FROM 1 FOR 2)' ];
+		yield [ 'someField', 1, null, 'SUBSTRING(someField FROM 1)' ];
+	}
+
+	/**
+	 * @covers Wikimedia\Rdbms\Database::buildSubstring
+	 * @dataProvider provideBuildSubstring
+	 */
+	public function testBuildSubstring( $input, $start, $length, $expected ) {
+		$output = $this->database->buildSubstring( $input, $start, $length );
+		$this->assertSame( $expected, $output );
+	}
+
+	public function provideBuildSubstring_invalidParams() {
+		yield [ -1, 1 ];
+		yield [ 1, -1 ];
+		yield [ 1, 'foo' ];
+		yield [ 'foo', 1 ];
+		yield [ null, 1 ];
+		yield [ 0, 1 ];
+	}
+
+	/**
+	 * @covers Wikimedia\Rdbms\Database::buildSubstring
+	 * @covers Wikimedia\Rdbms\Database::assertBuildSubstringParams
+	 * @dataProvider provideBuildSubstring_invalidParams
+	 */
+	public function testBuildSubstring_invalidParams( $start, $length ) {
+		$this->setExpectedException( InvalidArgumentException::class );
+		$this->database->buildSubstring( 'foo', $start, $length );
+	}
+
+	/**
+	 * @covers \Wikimedia\Rdbms\Database::buildIntegerCast
+	 */
+	public function testBuildIntegerCast() {
+		$output = $this->database->buildIntegerCast( 'fieldName' );
+		$this->assertSame( 'CAST( fieldName AS INTEGER )', $output );
+	}
+
 }

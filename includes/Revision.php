@@ -22,12 +22,13 @@
 
 use MediaWiki\Storage\MutableRevisionRecord;
 use MediaWiki\Storage\RevisionAccessException;
+use MediaWiki\Storage\RevisionFactory;
+use MediaWiki\Storage\RevisionLookup;
 use MediaWiki\Storage\RevisionRecord;
 use MediaWiki\Storage\RevisionStore;
 use MediaWiki\Storage\RevisionStoreRecord;
 use MediaWiki\Storage\SlotRecord;
 use MediaWiki\Storage\SqlBlobStore;
-use MediaWiki\User\UserIdentityValue;
 use Wikimedia\Rdbms\IDatabase;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
@@ -65,6 +66,20 @@ class Revision implements IDBAccessObject {
 	}
 
 	/**
+	 * @return RevisionLookup
+	 */
+	protected static function getRevisionLookup() {
+		return MediaWikiServices::getInstance()->getRevisionLookup();
+	}
+
+	/**
+	 * @return RevisionFactory
+	 */
+	protected static function getRevisionFactory() {
+		return MediaWikiServices::getInstance()->getRevisionFactory();
+	}
+
+	/**
 	 * @param bool|string $wiki The ID of the target wiki database. Use false for the local wiki.
 	 *
 	 * @return SqlBlobStore
@@ -97,7 +112,7 @@ class Revision implements IDBAccessObject {
 	 * @return Revision|null
 	 */
 	public static function newFromId( $id, $flags = 0 ) {
-		$rec = self::getRevisionStore()->getRevisionById( $id, $flags );
+		$rec = self::getRevisionLookup()->getRevisionById( $id, $flags );
 		return $rec === null ? null : new Revision( $rec, $flags );
 	}
 
@@ -116,7 +131,7 @@ class Revision implements IDBAccessObject {
 	 * @return Revision|null
 	 */
 	public static function newFromTitle( LinkTarget $linkTarget, $id = 0, $flags = 0 ) {
-		$rec = self::getRevisionStore()->getRevisionByTitle( $linkTarget, $id, $flags );
+		$rec = self::getRevisionLookup()->getRevisionByTitle( $linkTarget, $id, $flags );
 		return $rec === null ? null : new Revision( $rec, $flags );
 	}
 
@@ -135,7 +150,7 @@ class Revision implements IDBAccessObject {
 	 * @return Revision|null
 	 */
 	public static function newFromPageId( $pageId, $revId = 0, $flags = 0 ) {
-		$rec = self::getRevisionStore()->getRevisionByPageId( $pageId, $revId, $flags );
+		$rec = self::getRevisionLookup()->getRevisionByPageId( $pageId, $revId, $flags );
 		return $rec === null ? null : new Revision( $rec, $flags );
 	}
 
@@ -184,7 +199,7 @@ class Revision implements IDBAccessObject {
 			}
 		}
 
-		$rec = self::getRevisionStore()->newRevisionFromArchiveRow( $row, 0, $title, $overrides );
+		$rec = self::getRevisionFactory()->newRevisionFromArchiveRow( $row, 0, $title, $overrides );
 		return new Revision( $rec, self::READ_NORMAL, $title );
 	}
 
@@ -202,9 +217,9 @@ class Revision implements IDBAccessObject {
 	 */
 	public static function newFromRow( $row ) {
 		if ( is_array( $row ) ) {
-			$rec = self::getRevisionStore()->newMutableRevisionFromArray( $row );
+			$rec = self::getRevisionFactory()->newMutableRevisionFromArray( $row );
 		} else {
-			$rec = self::getRevisionStore()->newRevisionFromRow( $row );
+			$rec = self::getRevisionFactory()->newRevisionFromRow( $row );
 		}
 
 		return new Revision( $rec );
@@ -300,7 +315,18 @@ class Revision implements IDBAccessObject {
 	 * @return array
 	 */
 	public static function userJoinCond() {
+		global $wgActorTableSchemaMigrationStage;
+
 		wfDeprecated( __METHOD__, '1.31' );
+		if ( $wgActorTableSchemaMigrationStage > MIGRATION_WRITE_BOTH ) {
+			// If code is using this instead of self::getQueryInfo(), there's
+			// no way the join it's trying to do can work once the old fields
+			// aren't being written anymore.
+			throw new BadMethodCallException(
+				'Cannot use ' . __METHOD__ . ' when $wgActorTableSchemaMigrationStage > MIGRATION_WRITE_BOTH'
+			);
+		}
+
 		return [ 'LEFT JOIN', [ 'rev_user != 0', 'user_id = rev_user' ] ];
 	}
 
@@ -323,7 +349,17 @@ class Revision implements IDBAccessObject {
 	 * @return array
 	 */
 	public static function selectFields() {
-		global $wgContentHandlerUseDB;
+		global $wgContentHandlerUseDB, $wgActorTableSchemaMigrationStage;
+
+		if ( $wgActorTableSchemaMigrationStage > MIGRATION_WRITE_BOTH ) {
+			// If code is using this instead of self::getQueryInfo(), there's a
+			// decent chance it's going to try to directly access
+			// $row->rev_user or $row->rev_user_text and we can't give it
+			// useful values here once those aren't being written anymore.
+			throw new BadMethodCallException(
+				'Cannot use ' . __METHOD__ . ' when $wgActorTableSchemaMigrationStage > MIGRATION_WRITE_BOTH'
+			);
+		}
 
 		wfDeprecated( __METHOD__, '1.31' );
 
@@ -334,6 +370,7 @@ class Revision implements IDBAccessObject {
 			'rev_timestamp',
 			'rev_user_text',
 			'rev_user',
+			'rev_actor' => 'NULL',
 			'rev_minor_edit',
 			'rev_deleted',
 			'rev_len',
@@ -341,7 +378,7 @@ class Revision implements IDBAccessObject {
 			'rev_sha1',
 		];
 
-		$fields += CommentStore::newKey( 'rev_comment' )->getFields();
+		$fields += CommentStore::getStore()->getFields( 'rev_comment' );
 
 		if ( $wgContentHandlerUseDB ) {
 			$fields[] = 'rev_content_format';
@@ -358,7 +395,17 @@ class Revision implements IDBAccessObject {
 	 * @return array
 	 */
 	public static function selectArchiveFields() {
-		global $wgContentHandlerUseDB;
+		global $wgContentHandlerUseDB, $wgActorTableSchemaMigrationStage;
+
+		if ( $wgActorTableSchemaMigrationStage > MIGRATION_WRITE_BOTH ) {
+			// If code is using this instead of self::getQueryInfo(), there's a
+			// decent chance it's going to try to directly access
+			// $row->ar_user or $row->ar_user_text and we can't give it
+			// useful values here once those aren't being written anymore.
+			throw new BadMethodCallException(
+				'Cannot use ' . __METHOD__ . ' when $wgActorTableSchemaMigrationStage > MIGRATION_WRITE_BOTH'
+			);
+		}
 
 		wfDeprecated( __METHOD__, '1.31' );
 
@@ -371,6 +418,7 @@ class Revision implements IDBAccessObject {
 			'ar_timestamp',
 			'ar_user_text',
 			'ar_user',
+			'ar_actor' => 'NULL',
 			'ar_minor_edit',
 			'ar_deleted',
 			'ar_len',
@@ -378,7 +426,7 @@ class Revision implements IDBAccessObject {
 			'ar_sha1',
 		];
 
-		$fields += CommentStore::newKey( 'ar_comment' )->getFields();
+		$fields += CommentStore::getStore()->getFields( 'ar_comment' );
 
 		if ( $wgContentHandlerUseDB ) {
 			$fields[] = 'ar_content_format';
@@ -492,13 +540,13 @@ class Revision implements IDBAccessObject {
 				$row['user'] = $wgUser;
 			}
 
-			$this->mRecord = self::getRevisionStore()->newMutableRevisionFromArray(
+			$this->mRecord = self::getRevisionFactory()->newMutableRevisionFromArray(
 				$row,
 				$queryFlags,
 				$this->ensureTitle( $row, $queryFlags, $title )
 			);
 		} elseif ( is_object( $row ) ) {
-			$this->mRecord = self::getRevisionStore()->newRevisionFromRow(
+			$this->mRecord = self::getRevisionFactory()->newRevisionFromRow(
 				$row,
 				$queryFlags,
 				$this->ensureTitle( $row, $queryFlags, $title )
@@ -607,7 +655,7 @@ class Revision implements IDBAccessObject {
 	 */
 	public function setUserIdAndName( $id, $name ) {
 		if ( $this->mRecord instanceof MutableRevisionRecord ) {
-			$user = new UserIdentityValue( intval( $id ), $name );
+			$user = User::newFromAnyId( intval( $id ), $name, null );
 			$this->mRecord->setUser( $user );
 		} else {
 			throw new MWException( __METHOD__ . ' is not supported on this instance' );
@@ -976,7 +1024,7 @@ class Revision implements IDBAccessObject {
 	 */
 	public function getPrevious() {
 		$title = $this->getTitle();
-		$rec = self::getRevisionStore()->getPreviousRevision( $this->mRecord, $title );
+		$rec = self::getRevisionLookup()->getPreviousRevision( $this->mRecord, $title );
 		return $rec === null ? null : new Revision( $rec, self::READ_NORMAL, $title );
 	}
 
@@ -987,7 +1035,7 @@ class Revision implements IDBAccessObject {
 	 */
 	public function getNext() {
 		$title = $this->getTitle();
-		$rec = self::getRevisionStore()->getNextRevision( $this->mRecord, $title );
+		$rec = self::getRevisionLookup()->getNextRevision( $this->mRecord, $title );
 		return $rec === null ? null : new Revision( $rec, self::READ_NORMAL, $title );
 	}
 
@@ -1247,7 +1295,7 @@ class Revision implements IDBAccessObject {
 			return false;
 		}
 
-		$record = self::getRevisionStore()->getKnownCurrentRevision( $title, $revId );
+		$record = self::getRevisionLookup()->getKnownCurrentRevision( $title, $revId );
 		return $record ? new Revision( $record ) : false;
 	}
 }

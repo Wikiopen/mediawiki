@@ -1,7 +1,5 @@
 <?php
 /**
- * Created on Dec 01, 2007
- *
  * Copyright © 2007 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
@@ -346,6 +344,8 @@ class ApiParse extends ApiBase {
 			$result_array['text'] = $p_result->getText( [
 				'allowTOC' => !$params['disabletoc'],
 				'enableSectionEditLinks' => !$params['disableeditsection'],
+				'unwrap' => $params['wrapoutputclass'] === '',
+				'deduplicateStyles' => !$params['disablestylededuplication'],
 			] );
 			$result_array[ApiResult::META_BC_SUBELEMENTS][] = 'text';
 		}
@@ -536,13 +536,12 @@ class ApiParse extends ApiBase {
 		$popts->enableLimitReport( !$params['disablepp'] && !$params['disablelimitreport'] );
 		$popts->setIsPreview( $params['preview'] || $params['sectionpreview'] );
 		$popts->setIsSectionPreview( $params['sectionpreview'] );
-		$popts->setEditSection( !$params['disableeditsection'] );
 		if ( $params['disabletidy'] ) {
 			$popts->setTidy( false );
 		}
-		$popts->setWrapOutputClass(
-			$params['wrapoutputclass'] === '' ? false : $params['wrapoutputclass']
-		);
+		if ( $params['wrapoutputclass'] !== '' ) {
+			$popts->setWrapOutputClass( $params['wrapoutputclass'] );
+		}
 
 		$reset = null;
 		$suppressCache = false;
@@ -878,6 +877,7 @@ class ApiParse extends ApiBase {
 			'disablelimitreport' => false,
 			'disableeditsection' => false,
 			'disabletidy' => false,
+			'disablestylededuplication' => false,
 			'generatexml' => [
 				ApiBase::PARAM_DFLT => false,
 				ApiBase::PARAM_HELP_MSG => [

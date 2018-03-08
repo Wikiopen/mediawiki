@@ -82,10 +82,10 @@ class RebuildFileCache extends Maintenance {
 		$overwrite = $this->hasOption( 'overwrite' );
 		$start = ( $start > 0 )
 			? $start
-			: $dbr->selectField( 'page', 'MIN(page_id)', false, __METHOD__ );
+			: $dbr->selectField( 'page', 'MIN(page_id)', '', __METHOD__ );
 		$end = ( $end > 0 )
 			? $end
-			: $dbr->selectField( 'page', 'MAX(page_id)', false, __METHOD__ );
+			: $dbr->selectField( 'page', 'MAX(page_id)', '', __METHOD__ );
 		if ( !$start ) {
 			$this->fatalError( "Nothing to do." );
 		}
@@ -140,7 +140,7 @@ class RebuildFileCache extends Maintenance {
 						}
 					}
 
-					MediaWiki\suppressWarnings(); // header notices
+					Wikimedia\suppressWarnings(); // header notices
 					// Cache ?action=view
 					$wgRequestTime = microtime( true ); # T24852
 					ob_start();
@@ -157,7 +157,7 @@ class RebuildFileCache extends Maintenance {
 					$context->getOutput()->clearHTML();
 					$historyHtml = ob_get_clean();
 					$historyCache->saveToFileCache( $historyHtml );
-					MediaWiki\restoreWarnings();
+					Wikimedia\restoreWarnings();
 
 					if ( $rebuilt ) {
 						$this->output( "Re-cached page '$title' (id {$row->page_id})..." );
@@ -179,5 +179,5 @@ class RebuildFileCache extends Maintenance {
 	}
 }
 
-$maintClass = "RebuildFileCache";
+$maintClass = RebuildFileCache::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

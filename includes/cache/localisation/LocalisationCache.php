@@ -199,22 +199,22 @@ class LocalisationCache {
 			switch ( $conf['store'] ) {
 				case 'files':
 				case 'file':
-					$storeClass = 'LCStoreCDB';
+					$storeClass = LCStoreCDB::class;
 					break;
 				case 'db':
-					$storeClass = 'LCStoreDB';
+					$storeClass = LCStoreDB::class;
 					break;
 				case 'array':
-					$storeClass = 'LCStoreStaticArray';
+					$storeClass = LCStoreStaticArray::class;
 					break;
 				case 'detect':
 					if ( !empty( $conf['storeDirectory'] ) ) {
-						$storeClass = 'LCStoreCDB';
+						$storeClass = LCStoreCDB::class;
 					} elseif ( $wgCacheDirectory ) {
 						$storeConf['directory'] = $wgCacheDirectory;
-						$storeClass = 'LCStoreCDB';
+						$storeClass = LCStoreCDB::class;
 					} else {
-						$storeClass = 'LCStoreDB';
+						$storeClass = LCStoreDB::class;
 					}
 					break;
 				default:
@@ -517,15 +517,15 @@ class LocalisationCache {
 	 */
 	protected function readPHPFile( $_fileName, $_fileType ) {
 		// Disable APC caching
-		MediaWiki\suppressWarnings();
+		Wikimedia\suppressWarnings();
 		$_apcEnabled = ini_set( 'apc.cache_by_default', '0' );
-		MediaWiki\restoreWarnings();
+		Wikimedia\restoreWarnings();
 
 		include $_fileName;
 
-		MediaWiki\suppressWarnings();
+		Wikimedia\suppressWarnings();
 		ini_set( 'apc.cache_by_default', $_apcEnabled );
-		MediaWiki\restoreWarnings();
+		Wikimedia\restoreWarnings();
 
 		if ( $_fileType == 'core' || $_fileType == 'extension' ) {
 			$data = compact( self::$allKeys );

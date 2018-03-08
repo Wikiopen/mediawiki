@@ -336,6 +336,8 @@ class MysqlUpdater extends DatabaseUpdater {
 			[ 'addTable', 'slot_roles', 'patch-slot_roles.sql' ],
 			[ 'addTable', 'content_models', 'patch-content_models.sql' ],
 			[ 'migrateArchiveText' ],
+			[ 'addTable', 'actor', 'patch-actor-table.sql' ],
+			[ 'migrateActors' ],
 		];
 	}
 
@@ -432,7 +434,7 @@ class MysqlUpdater extends DatabaseUpdater {
 	}
 
 	protected function doOldLinksUpdate() {
-		$cl = $this->maintenance->runChild( 'ConvertLinks' );
+		$cl = $this->maintenance->runChild( ConvertLinks::class );
 		$cl->execute();
 	}
 
@@ -472,6 +474,17 @@ class MysqlUpdater extends DatabaseUpdater {
 			return;
 		}
 
+		$insertOpts = [ 'IGNORE' ];
+		$selectOpts = [];
+
+		// If wl_id exists, make insertSelect() more replication-safe by
+		// ordering on that column. If not, hint that it should be safe anyway.
+		if ( $this->db->fieldExists( 'watchlist', 'wl_id', __METHOD__ ) ) {
+			$selectOpts['ORDER BY'] = 'wl_id';
+		} else {
+			$insertOpts[] = 'NO_AUTO_COLUMNS';
+		}
+
 		$this->output( "Adding missing watchlist talk page rows... " );
 		$this->db->insertSelect( 'watchlist', 'watchlist',
 			[
@@ -479,7 +492,7 @@ class MysqlUpdater extends DatabaseUpdater {
 				'wl_namespace' => 'wl_namespace | 1',
 				'wl_title' => 'wl_title',
 				'wl_notificationtimestamp' => 'wl_notificationtimestamp'
-			], [ 'NOT (wl_namespace & 1)' ], __METHOD__, 'IGNORE' );
+			], [ 'NOT (wl_namespace & 1)' ], __METHOD__, $insertOpts, $selectOpts );
 		$this->output( "done.\n" );
 
 		$this->output( "Adding missing watchlist subject page rows... " );
@@ -489,7 +502,7 @@ class MysqlUpdater extends DatabaseUpdater {
 				'wl_namespace' => 'wl_namespace & ~1',
 				'wl_title' => 'wl_title',
 				'wl_notificationtimestamp' => 'wl_notificationtimestamp'
-			], [ 'wl_namespace & 1' ], __METHOD__, 'IGNORE' );
+			], [ 'wl_namespace & 1' ], __METHOD__, $insertOpts, $selectOpts );
 		$this->output( "done.\n" );
 	}
 
@@ -901,7 +914,8 @@ class MysqlUpdater extends DatabaseUpdater {
 					'tl_title' => 'pl_title'
 				], [
 					'pl_namespace' => 10
-				], __METHOD__
+				], __METHOD__,
+				[ 'NO_AUTO_COLUMNS' ] // There's no "tl_id" auto-increment field
 			);
 		}
 		$this->output( "Done. Please run maintenance/refreshLinks.php for a more " .
@@ -942,7 +956,7 @@ class MysqlUpdater extends DatabaseUpdater {
 		$this->output( "done.\n" );
 
 		$this->output( "Migrating old restrictions to new table...\n" );
-		$task = $this->maintenance->runChild( 'UpdateRestrictions' );
+		$task = $this->maintenance->runChild( UpdateRestrictions::class );
 		$task->execute();
 	}
 
@@ -965,7 +979,7 @@ class MysqlUpdater extends DatabaseUpdater {
 			"may want to hit Ctrl-C and do this manually with maintenance/\n" .
 			"populateCategory.php.\n"
 		);
-		$task = $this->maintenance->runChild( 'PopulateCategory' );
+		$task = $this->maintenance->runChild( PopulateCategory::class );
 		$task->execute();
 		$this->output( "Done populating category table.\n" );
 	}
@@ -977,7 +991,7 @@ class MysqlUpdater extends DatabaseUpdater {
 				"databases, you may want to hit Ctrl-C and do this manually with\n" .
 				"maintenance/populateParentId.php.\n" );
 
-			$task = $this->maintenance->runChild( 'PopulateParentId' );
+			$task = $this->maintenance->runChild( PopulateParentId::class );
 			$task->execute();
 		}
 	}

@@ -52,13 +52,13 @@ class PopulateBacklinkNamespace extends LoggedUpdateMaintenance {
 
 		$start = $this->getOption( 'lastUpdatedId' );
 		if ( !$start ) {
-			$start = $db->selectField( 'page', 'MIN(page_id)', false, __METHOD__ );
+			$start = $db->selectField( 'page', 'MIN(page_id)', '', __METHOD__ );
 		}
 		if ( !$start ) {
 			$this->output( "Nothing to do." );
 			return false;
 		}
-		$end = $db->selectField( 'page', 'MAX(page_id)', false, __METHOD__ );
+		$end = $db->selectField( 'page', 'MAX(page_id)', '', __METHOD__ );
 		$batchSize = $this->getBatchSize();
 
 		# Do remaining chunk
@@ -94,5 +94,5 @@ class PopulateBacklinkNamespace extends LoggedUpdateMaintenance {
 	}
 }
 
-$maintClass = "PopulateBacklinkNamespace";
+$maintClass = PopulateBacklinkNamespace::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

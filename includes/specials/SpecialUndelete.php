@@ -450,9 +450,7 @@ class SpecialUndelete extends SpecialPage {
 		if ( ( $this->mPreview || !$isText ) && $content ) {
 			// NOTE: non-text content has no source view, so always use rendered preview
 
-			// Hide [edit]s
 			$popts = $out->parserOptions();
-			$popts->setEditSection( false );
 
 			$pout = $content->getParserOutput( $this->mTargetObj, $rev->getId(), $popts, true );
 			$out->addParserOutput( $pout, [
@@ -741,6 +739,9 @@ class SpecialUndelete extends SpecialPage {
 				'content' => new OOUI\HtmlSnippet( $this->msg( 'undeleteextrahelp' )->parseAsBlock() )
 			] );
 
+			$conf = $this->getConfig();
+			$oldCommentSchema = $conf->get( 'CommentTableSchemaMigrationStage' ) === MIGRATION_OLD;
+
 			$fields[] = new OOUI\FieldLayout(
 				new OOUI\TextInputWidget( [
 					'name' => 'wpComment',
@@ -748,6 +749,10 @@ class SpecialUndelete extends SpecialPage {
 					'infusable' => true,
 					'value' => $this->mComment,
 					'autofocus' => true,
+					// HTML maxlength uses "UTF-16 code units", which means that characters outside BMP
+					// (e.g. emojis) count for two each. This limit is overridden in JS to instead count
+					// Unicode codepoints (or 255 UTF-8 bytes for old schema).
+					'maxLength' => $oldCommentSchema ? 255 : CommentStore::COMMENT_CHARACTER_LIMIT,
 				] ),
 				[
 					'label' => $this->msg( 'undeletecomment' )->text(),

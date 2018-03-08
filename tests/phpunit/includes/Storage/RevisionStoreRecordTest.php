@@ -30,7 +30,7 @@ class RevisionStoreRecordTest extends MediaWikiTestCase {
 		$title = Title::newFromText( 'Dummy' );
 		$title->resetArticleID( 17 );
 
-		$user = new UserIdentityValue( 11, 'Tester' );
+		$user = new UserIdentityValue( 11, 'Tester', 0 );
 		$comment = CommentStoreComment::newUnsavedComment( 'Hello World' );
 
 		$main = SlotRecord::newUnsaved( 'main', new TextContent( 'Lorem Ipsum' ) );
@@ -58,7 +58,7 @@ class RevisionStoreRecordTest extends MediaWikiTestCase {
 		$title = Title::newFromText( 'Dummy' );
 		$title->resetArticleID( 17 );
 
-		$user = new UserIdentityValue( 11, 'Tester' );
+		$user = new UserIdentityValue( 11, 'Tester', 0 );
 		$comment = CommentStoreComment::newUnsavedComment( 'Hello World' );
 
 		$main = SlotRecord::newUnsaved( 'main', new TextContent( 'Lorem Ipsum' ) );
@@ -213,7 +213,7 @@ class RevisionStoreRecordTest extends MediaWikiTestCase {
 		$title = Title::newFromText( 'Dummy' );
 		$title->resetArticleID( 17 );
 
-		$user = new UserIdentityValue( 11, 'Tester' );
+		$user = new UserIdentityValue( 11, 'Tester', 0 );
 
 		$comment = CommentStoreComment::newUnsavedComment( 'Hello World' );
 
@@ -458,8 +458,9 @@ class RevisionStoreRecordTest extends MediaWikiTestCase {
 		$rev = $this->newRevision( [ 'rev_deleted' => $visibility ] );
 
 		// NOTE: slot meta-data is never suppressed, just the content is!
-		$this->assertNotNull( $rev->getSlot( 'main', RevisionRecord::RAW ), 'raw can' );
-		$this->assertNotNull( $rev->getSlot( 'main', RevisionRecord::FOR_PUBLIC ), 'public can' );
+		$this->assertTrue( $rev->hasSlot( 'main' ), 'hasSlot is never suppressed' );
+		$this->assertNotNull( $rev->getSlot( 'main', RevisionRecord::RAW ), 'raw meta' );
+		$this->assertNotNull( $rev->getSlot( 'main', RevisionRecord::FOR_PUBLIC ), 'public meta' );
 
 		$this->assertNotNull(
 			$rev->getSlot( 'main', RevisionRecord::FOR_THIS_USER, $user ),
@@ -560,6 +561,13 @@ class RevisionStoreRecordTest extends MediaWikiTestCase {
 		$slot = $rev->getSlot( 'main' );
 		$this->assertNotNull( $slot, 'getSlot()' );
 		$this->assertSame( 'main', $slot->getRole(), 'getRole()' );
+	}
+
+	public function testHasSlot() {
+		$rev = $this->newRevision();
+
+		$this->assertTrue( $rev->hasSlot( 'main' ) );
+		$this->assertFalse( $rev->hasSlot( 'xyz' ) );
 	}
 
 	public function testGetContent() {
@@ -688,7 +696,7 @@ class RevisionStoreRecordTest extends MediaWikiTestCase {
 
 			return new RevisionStoreRecord(
 				$title,
-				new UserIdentityValue( 11, __METHOD__ ),
+				new UserIdentityValue( 11, __METHOD__, 0 ),
 				CommentStoreComment::newUnsavedComment( __METHOD__ ),
 				(object)[
 					'rev_id' => strval( $revId ),

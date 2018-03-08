@@ -7,7 +7,7 @@
 	},
 
 	"apihelp-main-summary": "",
-	"apihelp-main-extended-description": "<div class=\"hlist plainlinks api-main-links\">\n* [[mw:Special:MyLanguage/API:Main_page|Documentation]]\n* [[mw:Special:MyLanguage/API:FAQ|FAQ]]\n* [https://lists.wikimedia.org/mailman/listinfo/mediawiki-api Mailing list]\n* [https://lists.wikimedia.org/mailman/listinfo/mediawiki-api-announce API Announcements]\n* [https://phabricator.wikimedia.org/maniphest/query/GebfyV4uCaLd/#R Bugs & requests]\n</div>\n<strong>Status:</strong> All features shown on this page should be working, but the API is still in active development, and may change at any time. Subscribe to [https://lists.wikimedia.org/pipermail/mediawiki-api-announce/ the mediawiki-api-announce mailing list] for notice of updates.\n\n<strong>Erroneous requests:</strong> When erroneous requests are sent to the API, an HTTP header will be sent with the key \"MediaWiki-API-Error\" and then both the value of the header and the error code sent back will be set to the same value. For more information see [[mw:Special:MyLanguage/API:Errors_and_warnings|API: Errors and warnings]].\n\n<strong>Testing:</strong> For ease of testing API requests, see [[Special:ApiSandbox]].",
+	"apihelp-main-extended-description": "<div class=\"hlist plainlinks api-main-links\">\n* [[mw:Special:MyLanguage/API:Main_page|Documentation]]\n* [[mw:Special:MyLanguage/API:FAQ|FAQ]]\n* [https://lists.wikimedia.org/mailman/listinfo/mediawiki-api Mailing list]\n* [https://lists.wikimedia.org/mailman/listinfo/mediawiki-api-announce API Announcements]\n* [https://phabricator.wikimedia.org/maniphest/query/GebfyV4uCaLd/#R Bugs & requests]\n</div>\n<strong>Status:</strong> The MediaWiki API is a mature and stable interface that is actively supported and improved. While we try to avoid it, we may ocassionally need to make breaking changes; subscribe to [https://lists.wikimedia.org/pipermail/mediawiki-api-announce/ the mediawiki-api-announce mailing list] for notice of updates.\n\n<strong>Erroneous requests:</strong> When erroneous requests are sent to the API, an HTTP header will be sent with the key \"MediaWiki-API-Error\" and then both the value of the header and the error code sent back will be set to the same value. For more information see [[mw:Special:MyLanguage/API:Errors_and_warnings|API: Errors and warnings]].\n\n<p class=\"mw-apisandbox-link\"><strong>Testing:</strong> For ease of testing API requests, see [[Special:ApiSandbox]].</p>",
 	"apihelp-main-param-action": "Which action to perform.",
 	"apihelp-main-param-format": "The format of the output.",
 	"apihelp-main-param-maxlag": "Maximum lag can be used when MediaWiki is installed on a database replicated cluster. To save actions causing any more site replication lag, this parameter can make the client wait until the replication lag is less than the specified value. In case of excessive lag, error code <samp>maxlag</samp> is returned with a message like <samp>Waiting for $host: $lag seconds lagged</samp>.<br />See [[mw:Special:MyLanguage/Manual:Maxlag_parameter|Manual: Maxlag parameter]] for more information.",
@@ -211,8 +211,6 @@
 	"apihelp-feedrecentchanges-param-tagfilter": "Filter by tag.",
 	"apihelp-feedrecentchanges-param-target": "Show only changes on pages linked from this page.",
 	"apihelp-feedrecentchanges-param-showlinkedto": "Show changes on pages linked to the selected page instead.",
-	"apihelp-feedrecentchanges-param-categories": "Show only changes on pages in all of these categories.",
-	"apihelp-feedrecentchanges-param-categories_any": "Show only changes on pages in any of the categories instead.",
 	"apihelp-feedrecentchanges-example-simple": "Show recent changes.",
 	"apihelp-feedrecentchanges-example-30days": "Show recent changes for 30 days.",
 
@@ -391,6 +389,7 @@
 	"apihelp-parse-param-disablepp": "Use <var>$1disablelimitreport</var> instead.",
 	"apihelp-parse-param-disableeditsection": "Omit edit section links from the parser output.",
 	"apihelp-parse-param-disabletidy": "Do not run HTML cleanup (e.g. tidy) on the parser output.",
+	"apihelp-parse-param-disablestylededuplication": "Do not deduplicate inline stylesheets in the parser output.",
 	"apihelp-parse-param-generatexml": "Generate XML parse tree (requires content model <code>$1</code>; replaced by <kbd>$2prop=parsetree</kbd>).",
 	"apihelp-parse-param-preview": "Parse in preview mode.",
 	"apihelp-parse-param-sectionpreview": "Parse in section preview mode (enables preview mode too).",

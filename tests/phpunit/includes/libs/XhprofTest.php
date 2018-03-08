@@ -18,7 +18,7 @@
  * @file
  */
 
-class XhprofTest extends PHPUnit_Framework_TestCase {
+class XhprofTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -31,7 +31,7 @@ class XhprofTest extends PHPUnit_Framework_TestCase {
 	 * @covers Xhprof::enable
 	 */
 	public function testEnable() {
-		$xhprof = new ReflectionClass( 'Xhprof' );
+		$xhprof = new ReflectionClass( Xhprof::class );
 		$enabled = $xhprof->getProperty( 'enabled' );
 		$enabled->setAccessible( true );
 		$enabled->setValue( true );

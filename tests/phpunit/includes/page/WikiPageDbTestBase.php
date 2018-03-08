@@ -341,7 +341,7 @@ abstract class WikiPageDbTestBase extends MediaWikiLangTestCase {
 
 		# sanity check, because this test seems to fail for no reason for some people.
 		$c = $page->getContent();
-		$this->assertEquals( 'WikitextContent', get_class( $c ) );
+		$this->assertEquals( WikitextContent::class, get_class( $c ) );
 
 		# now, test the actual redirect
 		$t = $page->getRedirectTarget();
@@ -374,20 +374,6 @@ abstract class WikiPageDbTestBase extends MediaWikiLangTestCase {
 				true
 			],
 
-			// comma
-			[ 'WikiPageTest_testIsCountable',
-				CONTENT_MODEL_WIKITEXT,
-				'Foo',
-				'comma',
-				false
-			],
-			[ 'WikiPageTest_testIsCountable',
-				CONTENT_MODEL_WIKITEXT,
-				'Foo, bar',
-				'comma',
-				true
-			],
-
 			// link
 			[ 'WikiPageTest_testIsCountable',
 				CONTENT_MODEL_WIKITEXT,
@@ -412,12 +398,6 @@ abstract class WikiPageDbTestBase extends MediaWikiLangTestCase {
 			[ 'WikiPageTest_testIsCountable',
 				CONTENT_MODEL_WIKITEXT,
 				'#REDIRECT [[bar]]',
-				'comma',
-				false
-			],
-			[ 'WikiPageTest_testIsCountable',
-				CONTENT_MODEL_WIKITEXT,
-				'#REDIRECT [[bar]]',
 				'link',
 				false
 			],
@@ -427,12 +407,6 @@ abstract class WikiPageDbTestBase extends MediaWikiLangTestCase {
 				CONTENT_MODEL_WIKITEXT,
 				'Foo',
 				'any',
-				false
-			],
-			[ 'Talk:WikiPageTest_testIsCountable',
-				CONTENT_MODEL_WIKITEXT,
-				'Foo, bar',
-				'comma',
 				false
 			],
 			[ 'Talk:WikiPageTest_testIsCountable',
@@ -447,12 +421,6 @@ abstract class WikiPageDbTestBase extends MediaWikiLangTestCase {
 				null,
 				'Foo',
 				'any',
-				false
-			],
-			[ 'MediaWiki:WikiPageTest_testIsCountable.js',
-				null,
-				'Foo, bar',
-				'comma',
 				false
 			],
 			[ 'MediaWiki:WikiPageTest_testIsCountable.js',
@@ -1065,15 +1033,15 @@ more stuff
 	public function testWikiPageFactory() {
 		$title = Title::makeTitle( NS_FILE, 'Someimage.png' );
 		$page = WikiPage::factory( $title );
-		$this->assertEquals( 'WikiFilePage', get_class( $page ) );
+		$this->assertEquals( WikiFilePage::class, get_class( $page ) );
 
 		$title = Title::makeTitle( NS_CATEGORY, 'SomeCategory' );
 		$page = WikiPage::factory( $title );
-		$this->assertEquals( 'WikiCategoryPage', get_class( $page ) );
+		$this->assertEquals( WikiCategoryPage::class, get_class( $page ) );
 
 		$title = Title::makeTitle( NS_MAIN, 'SomePage' );
 		$page = WikiPage::factory( $title );
-		$this->assertEquals( 'WikiPage', get_class( $page ) );
+		$this->assertEquals( WikiPage::class, get_class( $page ) );
 	}
 
 	/**
@@ -1084,6 +1052,8 @@ more stuff
 	 */
 	public function testCommentMigrationOnDeletion( $writeStage, $readStage ) {
 		$this->setMwGlobals( 'wgCommentTableSchemaMigrationStage', $writeStage );
+		$this->overrideMwServices();
+
 		$dbr = wfGetDB( DB_REPLICA );
 
 		$page = $this->createPage(
@@ -1102,6 +1072,7 @@ more stuff
 		}
 
 		$this->setMwGlobals( 'wgCommentTableSchemaMigrationStage', $readStage );
+		$this->overrideMwServices();
 
 		$page->doDeleteArticle( "testing deletion" );
 
@@ -1781,12 +1752,13 @@ more stuff
 
 		// Make sure the log entry looks good
 		// log_params is not checked here
+		$actorQuery = ActorMigration::newMigration()->getJoin( 'log_user' );
 		$this->assertSelect(
-			'logging',
+			[ 'logging' ] + $actorQuery['tables'],
 			[
 				'log_comment',
-				'log_user',
-				'log_user_text',
+				'log_user' => $actorQuery['fields']['log_user'],
+				'log_user_text' => $actorQuery['fields']['log_user_text'],
 				'log_namespace',
 				'log_title',
 			],
@@ -1797,7 +1769,9 @@ more stuff
 				$user->getName(),
 				(string)$page->getTitle()->getNamespace(),
 				$page->getTitle()->getDBkey(),
-			] ]
+			] ],
+			[],
+			$actorQuery['joins']
 		);
 	}
 
