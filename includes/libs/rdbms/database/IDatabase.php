@@ -357,7 +357,7 @@ interface IDatabase {
 	public function getType();
 
 	/**
-	 * Open a connection to the database. Usually aborts on failure
+	 * Open a new connection to the database (closing any existing one)
 	 *
 	 * @param string $server Database server host
 	 * @param string $user Database user name
@@ -492,8 +492,11 @@ interface IDatabase {
 	public function getServerVersion();
 
 	/**
-	 * Closes a database connection.
-	 * if it is open : commits any open transactions
+	 * Close the database connection
+	 *
+	 * This should only be called after any transactions have been resolved,
+	 * aside from read-only transactions (assuming no callbacks are registered).
+	 * If a transaction is still open anyway, it will be committed if possible.
 	 *
 	 * @throws DBError
 	 * @return bool Operation success. true if already closed.
@@ -822,11 +825,12 @@ interface IDatabase {
 	 * @param array|string $conds Filters on the table
 	 * @param string $fname Function name for profiling
 	 * @param array $options Options for select
+	 * @param array|string $join_conds Join conditions
 	 * @return int Row count
 	 * @throws DBError
 	 */
 	public function estimateRowCount(
-		$table, $vars = '*', $conds = '', $fname = __METHOD__, $options = []
+		$table, $vars = '*', $conds = '', $fname = __METHOD__, $options = [], $join_conds = []
 	);
 
 	/**
@@ -1927,6 +1931,21 @@ interface IDatabase {
 	 * @since 1.28
 	 */
 	public function setTableAliases( array $aliases );
+
+	/**
+	 * Convert certain index names to alternative names before querying the DB
+	 *
+	 * Note that this applies to indexes regardless of the table they belong to.
+	 *
+	 * This can be employed when an index was renamed X => Y in code, but the new Y-named
+	 * indexes were not yet built on all DBs. After all the Y-named ones are added by the DBA,
+	 * the aliases can be removed, and then the old X-named indexes dropped.
+	 *
+	 * @param string[] $aliases
+	 * @return mixed
+	 * @since 1.31
+	 */
+	public function setIndexAliases( array $aliases );
 }
 
 class_alias( IDatabase::class, 'IDatabase' );
